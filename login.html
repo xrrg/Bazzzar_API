@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Form for API</title>
+    <link rel="stylesheet" type="text/css" href="">
+</head>
+<body>
+    <h3>Log in</h3>
+    <form action="http://127.0.0.1:8000/api/login/" method="post">
+        <label for="username">username</label>
+        <input type="text" name="username"  id="username">
+        <br>
+        <label for="password">password</label>
+        <input type="password" name="password"  id="password">
+        <br>
+        <input class="button" type="submit" value="Log in">
+    </form>
+
+    <h3>Log out</h3>
+    <form action="http://127.0.0.1:8000/api/logout/" method="get">
+        <input class="button" type="submit" value="Log out">
+    </form>
+
+    <h3>Register</h3>
+    <form action="http://127.0.0.1:8000/api/register/" method="post">
+        <label for="email">email</label>
+        <input type="email" name="email"  id="email">
+        <br>
+        <label for="username">username</label>
+        <input type="text" name="username"  id="username">
+        <br>
+        <label for="password">password</label>
+        <input type="password" name="password"  id="password">
+        <br>
+        <input class="button" type="submit" value="Register">
+    </form>
+
+    <h3>Add_favorite</h3>
+    <form action="http://127.0.0.1:8000/api/add_favorite/" method="post">
+        <label for="add_favorite">add_favorite</label>
+        <input type="text" name="advertisement_id"  id="advertisement_id">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Add fav">
+    </form>
+
+    <h3>Del_favorite</h3>
+    <form action="http://127.0.0.1:8000/api/del_favorite/" method="post">
+        <label for="del_favorite">del_favorite</label>
+        <input type="text" name="advertisement_id"  id="advertisement_id">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Delete fav">
+    </form>
+
+    <h3>Change email</h3>
+    <form action="http://127.0.0.1:8000/api/change_email/" method="post">
+        <label for="new_email">new_email</label>
+        <input type="text" name="new_email"  id="new_email">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Change email">
+    </form>
+
+    <h3>Change password</h3>
+    <form action="http://127.0.0.1:8000/api/change_password/" method="post">
+        <label for="new_password">new_password</label>
+        <input type="password" name="new_password"  id="new_password">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Change password">
+    </form>
+
+    <h3>Subscribe</h3>
+    <form action="http://127.0.0.1:8000/api/subscribe/" method="post">
+        <label for="category_id">category_id</label>
+        <input type="text" name="category_id"  id="category_id">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Subscribe!">
+    </form>
+
+    <h3>Delete subscription</h3>
+    <form action="http://127.0.0.1:8000/api/del_subscription/" method="post">
+        <label for="category_id">category_id</label>
+        <input type="text" name="category_id"  id="category_id">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="unsubscribe">
+    </form>
+
+    <h3>Base filter</h3>
+    <form action="http://127.0.0.1:8000/api/base_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="condition">condition</label>
+        <input type="text" name="condition"  id="condition">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>House filter</h3>
+    <form action="http://127.0.0.1:8000/api/house_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <label for="communications">communications</label>
+        <input type="text" name="housing__communications__contains"  id="communications">
+        <br>
+        <label for="area">area</label>
+        <input type="text" name="housing__area"  id="area">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>Transport filter</h3>
+    <form action="http://127.0.0.1:8000/api/transport_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <label for="year">year</label>
+        <input type="text" name="transport__year"  id="year">
+        <br>
+        <label for="motor_power">motor power</label>
+        <input type="text" name="transport__motor_power"  id="motor_power">
+        <br>
+        <label for="transport__color">transport color</label>
+        <input type="text" name="transport__color__contains"  id="transport__color">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>Clothes filter</h3>
+    <form action="http://127.0.0.1:8000/api/clothes_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <label for="clothes__sex">clothes_sex (1/0)</label>
+        <input type="text" name="clothes__sex"  id="clothes__sex">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>KidsThings filter</h3>
+    <form action="http://127.0.0.1:8000/api/kidsthings_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <label for="sex">Kid sex (1/0)</label>
+        <input type="text" name="kids_things__sex"  id="sex">
+        <br>
+        <label for="age">Kid age</label>
+        <input type="text" name="kids_things__age"  id="age">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>Tourism filter</h3>
+    <form action="http://127.0.0.1:8000/api/tourism_filter/" method="post">
+        <h4>Parameters:</h4>
+        <label for="category">category_id</label>
+        <input type="text" name="category"  id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city"  id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title__contains"  id="title">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price"  id="price">
+        <br>
+        <label for="recreation_name">Recreation name</label>
+        <input type="text" name="recreation__name__contains"  id="recreation_name">
+        <br>
+        <input class="button" type="submit" value="filter">
+    </form>
+
+    <h3>Add Advertisement</h3>
+    <form action="http://127.0.0.1:8000/api/add_adv/" method="post">
+        <h4>Parameters:</h4>
+        <label for="token">Request token</label>
+        <input type="text" name="token"  id="token">
+        <br>
+        <label for="category">category_id</label>
+        <input type="text" name="category" id="category">
+        <br>
+        <label for="city">city_id</label>
+        <input type="text" name="city" id="city">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title" id="title">
+        <br>
+        <label for="description">description</label>
+        <input type="text" name="description" id="description">
+        <br>
+        <label for="condition">condition</label>
+        <input type="text" name="condition" id="condition">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price" id="price">
+        <br>
+        <label for="phone">phone</label>
+        <input type="text" name="phone" id="phone">
+        <br>
+        <input class="button" type="submit" value="Add">
+    </form>
+</body>
+</html>
