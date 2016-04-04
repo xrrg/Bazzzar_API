@@ -268,5 +268,61 @@
         <br>
         <input class="button" type="submit" value="Add">
     </form>
+
+    <h3>Edit Advertisement</h3>
+    <form action="http://127.0.0.1:8000/api/edit_adv/" method="post">
+        <h4>Parameters:</h4>
+        <label for="token">Request token</label>
+        <input type="text" name="token"  id="token">
+        <br>
+        <label for="adv_id">adv_id</label>
+        <input type="text" name="adv_id" id="adv_id">
+        <br>
+        <label for="category_id">category_id</label>
+        <input type="text" name="category_id" id="category_id">
+        <br>
+        <label for="city_id">city_id</label>
+        <input type="text" name="city_id" id="city_id">
+        <br>
+        <label for="title">title</label>
+        <input type="text" name="title" id="title">
+        <br>
+        <label for="description">description</label>
+        <input type="text" name="description" id="description">
+        <br>
+        <label for="condition">condition</label>
+        <input type="text" name="condition" id="condition">
+        <br>
+        <label for="price">price</label>
+        <input type="text" name="price" id="price">
+        <br>
+        <label for="phone">phone</label>
+        <input type="text" name="phone" id="phone">
+        <br>
+        <input class="button" type="submit" value="Edit">
+    </form>
+
+    <h3>Delete Advertisement</h3>
+    <form action="http://127.0.0.1:8000/api/del_adv/" method="post">
+        <label for="token">Request token</label>
+        <input type="text" name="token"  id="token">
+        <br>
+        <label for="adv_id">adv_id</label>
+        <input type="text" name="adv_id"  id="adv_id">
+        <br>
+        <input class="button" type="submit" value="delete adv">
+    </form>
+
+    <h3>Upload Photo</h3>
+    <form action="http://127.0.0.1:8000/api/upload_photos/" method="post" enctype="multipart/form-data">
+        <label for="profile">Profile photo</label>
+        <input type="file" name="profile"  id="profile">
+        <br>
+        <label for="advertisement">Advertisement photo</label>
+        <input type="file" name="advertisement"  id="advertisement">
+        <br>
+        <input class="button" type="submit" value="Upload to server">
+    </form>
+
 </body>
 </html>

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*
+import os
 import hashlib
 # from datetime import date
 # import random
@@ -251,7 +252,6 @@ def delete_favorite(request):
         return JsonResponse({'status': 'request_error'})
 
 
-####################################################################################
 def get_categories(request):
     """
     Function return data with existing categories (id, name) in json-format
@@ -562,10 +562,84 @@ def add_adv(request):
                     advertisement.save()
                     return JsonResponse({'status': 'Advertisement successful add'})
 
-            except ValueError or ObjectDoesNotExist:
+            except Exception:
                 return JsonResponse({'status': 'parameters_error'})
 
         else:
             return JsonResponse({'status': 'authentication_error or missing token'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+###############################################################################################
+def del_adv(request):
+    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            adv_id = request.POST['adv_id']
+            try:
+                adv = Advertisement.objects.get(pk=adv_id)
+            except ObjectDoesNotExist:
+                return JsonResponse({'status': 'advertisement not found'})
+            else:
+                if adv.profile.pk == user_profile.pk:
+                    adv.delete()
+                    return JsonResponse({'status': 'success'})
+                else:
+                    return JsonResponse({'status': 'permission_error'})
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+def edit_adv(request):
+    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            adv_id = request.POST['adv_id']
+            try:
+                adv = Advertisement.objects.get(pk=adv_id)
+            except ObjectDoesNotExist:
+                return JsonResponse({'status': 'advertisement not found'})
+            else:
+                if adv.profile.pk == user_profile.pk:
+                    params = request.POST.items()
+                    payload = dict()
+                    for x in params:
+                        if x[1] != '':
+                            payload[str(x[0])] = str(x[1])
+                        else:
+                            continue
+                    arg_set = ('profile', 'title', 'description', 'condition', 'price', 'phone')
+                    # category_id = payload['category_id']
+                    city_id = payload['city_id']
+                    for arg in arg_set:
+                        if arg in payload:
+                            setattr(adv, arg, payload[arg])
+                        else:
+                            continue
+                    # if category_id != '':
+                    #     adv.category = Category.objects.get(pk=category_id)
+                    if city_id != '':
+                        adv.city = City.objects.get(pk=city_id)
+                    adv.save()
+                    return JsonResponse({'status': 'success'})
+
+                else:
+                    return JsonResponse({'status': 'permission_error'})
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+def upload_photos(request):
+    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            pass
+        else:
+            return JsonResponse({'status': 'authentication_error'})
     else:
         return JsonResponse({'status': 'request_error'})

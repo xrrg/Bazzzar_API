@@ -22,6 +22,9 @@ urlpatterns = [
     url(r'get_categories/', views.get_categories),
     url(r'get_advs_by_id/', views.get_advs_by_id),
     url(r'add_adv/', views.add_adv),
+    url(r'edit_adv/', views.edit_adv),
+    url(r'del_adv/', views.del_adv),
+
 
     url(r'base_filter/', views.base_filter),
     url(r'house_filter/', views.house_filter),
@@ -29,6 +32,7 @@ urlpatterns = [
     url(r'clothes_filter/', views.clothes_filter),
     url(r'kidsthings_filter/', views.kidsthings_filter),
     url(r'tourism_filter/', views.tourism_filter),
+    url(r'upload_photos/', views.upload_photos),
 
     url(r'', views.initialize),
 ]
