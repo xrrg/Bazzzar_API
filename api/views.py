@@ -39,8 +39,8 @@ def register(request):
         salt = hashlib.sha1(str(random.random()).encode('utf-8')).hexdigest()[:5]
         salted_username = salt + new_user.username
         token = hashlib.sha1(salted_username.encode('utf-8')).hexdigest()  # TODO: add confirmation email
-        # userFavorites_table = UserFavorites()
-        # userFavorites_table.save()
+        # СТРАНННО ЧТО token = activation_key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         new_profile = Profile(user=new_user, token=token,
                               activation_key=token)
         new_profile.save()
@@ -580,7 +580,7 @@ def add_adv(request):
 
 
 ###############################################################################################
-def del_adv(request):   # ДОДЕЛАТЬ УДАЛЕНИЕ ПРИВЯЗАННЫХ ФОТОГРАФИЙ
+def del_adv(request):   # final version
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -593,6 +593,24 @@ def del_adv(request):   # ДОДЕЛАТЬ УДАЛЕНИЕ ПРИВЯЗАННЫ
                 return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
+                    sizes = ('L', 'M', 'S')
+                    image_list = adv.image_titles.split(',')
+                    path = user_profile.folder_path
+
+                    for image in image_list:
+                        full_path = path + image
+                        try:
+                            os.remove(full_path)    # delete source image
+                        except FileNotFoundError:
+                            pass
+
+                        for size in sizes:  # delete different sizes images
+                            full_path = path + image[:8] + '_' + size + '.jpg'
+                            try:
+                                os.remove(full_path)
+                            except FileNotFoundError:
+                                pass
+
                     adv.delete()
                     return JsonResponse({'status': 'success'})
                 else:
