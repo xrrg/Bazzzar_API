@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*
 import os
+import uuid
 import hashlib
+import codecs
 # from datetime import date
 # import random
 
@@ -10,12 +12,16 @@ from django.shortcuts import render
 # from django.contrib.auth.models import User
 # from django.utils import timezone
 
+from bazzzar.settings import MEDIA_ROOT
 from .models import *
 from django.contrib import auth
 
 # import json
+from  PIL import Image
 import sqlite3
 from parsing_string import *
+from file_methods import *
+import requests
 
 
 def initialize(request):  # load main.html
@@ -119,7 +125,7 @@ def change_password(request):  # mobile client handles old password check
         return JsonResponse({'status': 'request_error'})
 
 
-# тестовая дичь! будь осторожен, путник
+# тестовый вариант. будь осторожен, путник
 def insert_row(request):
     profile_list = list()
     user = User.objects.get(id=3)   # can delete list of records
@@ -134,7 +140,7 @@ def insert_row(request):
     return JsonResponse({'status': 'successfully add row'})
 
 
-def add_subscription(request):  # TODO: db structure will be changed
+def add_subscription(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -160,7 +166,7 @@ def add_subscription(request):  # TODO: db structure will be changed
         return JsonResponse({'status': 'request_error'})
 
 
-# тестовая дичь! будь осторожен, путник
+# тестовый вариант. будь осторожен, путник
 def delete_row(request):
     profile_list = list()
     user = User.objects.get(id=3)   # can delete list of users
@@ -175,7 +181,7 @@ def delete_row(request):
     return JsonResponse({'status': 'successfully delete row'})
 
 
-def delete_subscription(request):  # TODO: db structure will be changed
+def delete_subscription(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -201,14 +207,14 @@ def delete_subscription(request):  # TODO: db structure will be changed
         return JsonResponse({'status': 'request_error'})
 
 
-# тестовая дичь! будь осторожен, путник
+# тестовый вариант. будь осторожен, путник
 def add_category(request):
     Category(name='#').save()
 
     return JsonResponse({'status': 'successfully added'})
 
 
-# тестовая дичь! будь осторожен, путник
+# тестовый вариант. будь осторожен, путник
 def delete_category(request):
     Category.objects.get(name='#').delete()
 
@@ -234,7 +240,7 @@ def add_favorite(request):
 
 
 def delete_favorite(request):
-    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+    if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             adv_id = int(request.POST['advertisement_id'])
@@ -347,7 +353,7 @@ def get_int_params(request, str_list):
     for name in str_list:
         if request.POST[name] != '':
             if isinstance(int(request.POST[name]), int):
-                kwargs[name] = request.POST[name]
+                kwargs[name] = int(request.POST[name])
 
     return kwargs
 
@@ -536,7 +542,7 @@ def tourism_filter(request):
 
 
 def add_adv(request):
-    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+    if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             params = dict()
@@ -560,6 +566,8 @@ def add_adv(request):
                 advertisement = Advertisement.objects.create(**params)
                 if advertisement:
                     advertisement.save()
+                    advertisement.category.notification_counter += 1
+                    advertisement.category.save()
                     return JsonResponse({'status': 'Advertisement successful add'})
 
             except Exception:
@@ -572,8 +580,8 @@ def add_adv(request):
 
 
 ###############################################################################################
-def del_adv(request):
-    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+def del_adv(request):   # ДОДЕЛАТЬ УДАЛЕНИЕ ПРИВЯЗАННЫХ ФОТОГРАФИЙ
+    if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             adv_id = request.POST['adv_id']
@@ -581,6 +589,8 @@ def del_adv(request):
                 adv = Advertisement.objects.get(pk=adv_id)
             except ObjectDoesNotExist:
                 return JsonResponse({'status': 'advertisement not found'})
+            except ValueError:
+                return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
                     adv.delete()
@@ -593,8 +603,8 @@ def del_adv(request):
         return JsonResponse({'status': 'request_error'})
 
 
-def edit_adv(request):
-    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+def edit_adv(request):  # Вова переделал
+    if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             adv_id = request.POST['adv_id']
@@ -602,6 +612,8 @@ def edit_adv(request):
                 adv = Advertisement.objects.get(pk=adv_id)
             except ObjectDoesNotExist:
                 return JsonResponse({'status': 'advertisement not found'})
+            except ValueError:
+                return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
                     params = request.POST.items()
@@ -634,11 +646,137 @@ def edit_adv(request):
         return JsonResponse({'status': 'request_error'})
 
 
-def upload_photos(request):
-    if request.method == 'POST':  # POST is just for testing. TODO:change to DELETE
+def upload_photos(request):  # final version
+    """
+    Function processes the incoming images
+    :param request: user token, advertisement id
+    :return: status, list of failed upload files || (&&) list of success upload files
+    """
+    if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
-            pass
+            adv_id = request.POST['adv_id']
+            try:    # check existence advertisement and belong to profile
+                advertisement = Advertisement.objects.get(pk=adv_id, profile_id=user_profile.id)
+            except ObjectDoesNotExist:
+                return JsonResponse({'status': "advertisement not found or doesn't belong by current user"})
+            except ValueError:
+                return JsonResponse({'status': "adv_id value error"})
+            else:
+                if user_profile.folder_path != '':  # check existence dir
+                    dir_path = user_profile.folder_path
+                else:
+                    dir_path = get_path(user_profile.id)  # create dir-path for profile
+                    try:
+                        os.chdir(MEDIA_ROOT + "/")
+                        os.makedirs(dir_path)   # create user's dir
+                    except FileExistsError:
+                        pass
+
+                max_count = 5   # max photo count at 1 advertisement
+                if advertisement.image_titles == '':  # current photo count at this advertisement
+                    current_count = 0
+                else:
+                    current_count = len(advertisement.image_titles.split(','))
+
+                if current_count < max_count:
+                    success_upload = list()
+                    failed_upload = list()
+
+                    for fileName in request.FILES:
+                        if current_count < max_count:
+                            uploaded_file = request.FILES[fileName]  # object UploadedFile
+                            image_format = uploaded_file.name[-4:]  # .jpg , .png , .bmp, etc.
+
+                            image_name = str(uuid.uuid4())[:8] + image_format  # random filename with source format
+                            full_path = dir_path + image_name
+
+                            if image_format == '.jpg':
+                                handle_uploaded_file(uploaded_file, full_path)  # save .jpg file
+                                image_resize(full_path)  # resize image to S,M,L sizes
+                                success_upload.append(image_name)
+                            else:
+                                handle_uploaded_file(uploaded_file, full_path)  # save source format file
+
+                                try:
+                                    image_name = convert_to_jpg(full_path)  # create new file and remove source file
+                                    success_upload.append(image_name)
+                                except OSError:  # if not supported convert format
+                                    failed_upload.append(uploaded_file.name)    # add failed filename
+                                    os.remove(full_path)  # remove source file
+                                    try:
+                                        full_path = dir_path + image_name[:8] + '.jpg'
+                                        os.remove(full_path)  # remove created file
+                                    except FileNotFoundError:
+                                        pass
+
+                                    # return JsonResponse({'status': 'file_format_error'})
+
+                                full_path = dir_path + image_name  # new full path
+                                image_resize(full_path)  # resize image to S,M,L sizes
+                        else:
+                            break
+                        current_count += 1
+
+                    images_str = ','.join(success_upload)  # save file names to Advertisement object
+                    if advertisement.image_titles != '':
+                        advertisement.image_titles += ',' + images_str
+                    else:
+                        advertisement.image_titles = images_str
+                    advertisement.save()
+
+                    user_profile.folder_path = dir_path  # save full path to  user folder
+                    user_profile.save()
+                    return JsonResponse({'status': 'successful upload',
+                                         'success': success_upload,
+                                         'failed': failed_upload})
+                else:
+                    return JsonResponse({'status': 'limit_error'})  # limit of 5 photos
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+def delete_photos(request):  # final version
+    """
+    Function processes the incoming requests to delete photos
+    :param request: user token, advertisement id, string of images names
+    :return: json response
+    """
+    if request.method == 'POST':
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            adv_id = request.POST['adv_id']
+            try:    # check existence advertisement and belong to profile
+                advertisement = Advertisement.objects.get(pk=adv_id, profile_id=user_profile.id)
+            except ObjectDoesNotExist:
+                return JsonResponse({'status': "advertisement not found or doesn't belong by current user"})
+            except ValueError:
+                return JsonResponse({'status': "adv_id value error"})
+            else:
+                sizes = ('L', 'M', 'S')
+                path = user_profile.folder_path
+                image_list = request.POST['image_list'].split(',')  # values in request 'b8a5252f.jpg, .. ,9dc6bb03.jpg'
+                for image in image_list:
+                    if image in advertisement.image_titles:
+                        full_path = path + image
+                        titles_list = advertisement.image_titles.split(',')
+                        titles_list.remove(image)
+                        advertisement.image_titles = ','.join(titles_list)
+                        advertisement.save()
+                        try:
+                            os.remove(full_path)
+                        except FileNotFoundError:
+                            pass
+
+                        for size in sizes:
+                            full_path = path + image[:8] + '_' + size + '.jpg'
+                            try:
+                                os.remove(full_path)
+                            except FileNotFoundError:
+                                pass
+                return JsonResponse({'status': 'successful delete'})
         else:
             return JsonResponse({'status': 'authentication_error'})
     else:

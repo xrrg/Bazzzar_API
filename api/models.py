@@ -19,6 +19,7 @@ class Profile(models.Model):
     token = models.CharField(max_length=255)
     userFavorites = models.CommaSeparatedIntegerField(blank=True, default='', max_length=1000)
     activation_key = models.CharField(max_length=50)
+    folder_path = models.FilePathField(blank=True, default='')
 
     def __str__(self):
         return self.user.username
@@ -37,7 +38,7 @@ class Advertisement(models.Model):
     condition = models.BooleanField(help_text='Check - New thing, None - Used thing')  # New - True, if used one - False
     price = models.IntegerField(validators=[MinValueValidator(limit_value=0.01)])
     phone = models.CharField(max_length=100)
-    # photo_table = models.ForeignKey('AdvertisementPhoto', null=True)
+    image_titles = models.CharField(max_length=255, default='')  # '1407107f.png,da7809b6.jpg ... to 5 '
 
     # Additional Fields
     housing = models.ForeignKey('Housing', blank=True, null=True)
@@ -251,10 +252,3 @@ class Subscribers(models.Model):
     def __str__(self):
         return 'subscribers'
 """
-
-
-class AdvertisementPhoto(models.Model):
-    class Meta:
-        db_table = 'advertisement photo'
-
-    photo = models.FilePathField()

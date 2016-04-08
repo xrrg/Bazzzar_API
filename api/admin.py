@@ -16,7 +16,6 @@ admin.site.register(Profile)
 admin.site.register(Advertisement)
 admin.site.register(Category)
 admin.site.register(City)
-admin.site.register(AdvertisementPhoto)
 
 # additional models for Advertisement
 admin.site.register(Housing)

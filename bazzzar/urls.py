@@ -15,8 +15,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.conf.urls import patterns, include, url
+from django.conf.urls.static import static
+from bazzzar.settings import MEDIA_URL, MEDIA_ROOT
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^api/', include('api.urls', namespace="api")),
-]
+] + static(MEDIA_URL, document_root=MEDIA_ROOT)
+
+# http://127.0.0.1:8000/media/00/00/00/00/03/kosmos-planety-zvezdy-5340.jpg
+# http://127.0.0.1:8000/media/00/00/00/00/03/skgafoss-waterfall-skg.jpg

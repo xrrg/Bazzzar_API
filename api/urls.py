@@ -1,4 +1,5 @@
 from django.conf.urls import url
+
 from . import views
 
 urlpatterns = [
@@ -33,6 +34,7 @@ urlpatterns = [
     url(r'kidsthings_filter/', views.kidsthings_filter),
     url(r'tourism_filter/', views.tourism_filter),
     url(r'upload_photos/', views.upload_photos),
+    url(r'delete_photos/', views.delete_photos),
 
     url(r'', views.initialize),
 ]
