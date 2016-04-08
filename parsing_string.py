@@ -51,28 +51,3 @@ def add_to_str(source_string, added_str):
             pass
     else:
         pass
-
-"""
-string = "1,3,5,7,8,88,99,100"
-test_string = "99"
-print("Source string", string)
-get_int_list(string)
-
-lst = [2, 3, 4, 6, 7]
-str_from_list(lst)
-
-add_to_str('9', string)
-
-if test_string in string:
-    print("%s found in source string" % test_string)
-else:
-    print("Not found in string")
-"""
-
-"""
-get_int_list(str())
-string = str()
-string = str_from_int_list(list())
-print("Empty string", string)
-print("Empty list ", get_int_list(string))
-"""
