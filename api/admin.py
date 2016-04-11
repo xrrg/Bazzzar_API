@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.admin.actions import delete_selected
 from .models import *
 
 
@@ -16,6 +15,7 @@ admin.site.register(Profile)
 admin.site.register(Advertisement)
 admin.site.register(Category)
 admin.site.register(City)
+admin.site.register(Commercial)
 
 # additional models for Advertisement
 admin.site.register(Housing)

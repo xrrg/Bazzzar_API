@@ -240,15 +240,15 @@ class City(models.Model):
     def __str__(self):
         return self.name
 
-"""
-class Subscribers(models.Model):
-    class Meta:
-        db_table = 'subscribers'
-        abstract = True
 
-    # maybe add id = AutoField
-    profile_id = models.IntegerField(blank=True, null=True, unique=True)
+class Commercial(models.Model):  # Create by administration
+    class Meta:
+        db_table = 'commercials'
+
+    adv_url = models.URLField()
+    adv_content = models.URLField()
+    adv_title = models.CharField(max_length=100)
+    is_shown = models.BooleanField(default=False)
 
     def __str__(self):
-        return 'subscribers'
-"""
+        return self.adv_title

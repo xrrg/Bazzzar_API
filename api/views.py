@@ -1,27 +1,19 @@
 # -*- coding: utf-8 -*
-import os
 import uuid
 import hashlib
-import codecs
-# from datetime import date
-# import random
 
 from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
+from smtplib import SMTPException
 from django.shortcuts import render
-# from django.contrib.auth.models import User
-# from django.utils import timezone
 
-from bazzzar.settings import MEDIA_ROOT
 from .models import *
 from django.contrib import auth
 
-# import json
-from  PIL import Image
 import sqlite3
 from parsing_string import *
 from file_methods import *
-import requests
 
 
 def initialize(request):  # load main.html
@@ -121,6 +113,25 @@ def change_password(request):  # mobile client handles old password check
             return JsonResponse({'status': 'password successful changed'})
         else:
             return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+def reset_password(request):
+    if request.method == 'POST':
+        user_login = request.POST['login']
+        user = User.objects.get(username=user_login)
+        new_password = hashlib.sha1(str(random.random()).encode('utf-8')).hexdigest()[:8]
+        user.set_password(new_password)
+        user.save()
+        email_subject = 'Password reset'
+        email_body = "Dear %s, your new password is %s." % (user.username, new_password)
+        try:
+            send_mail(email_subject, email_body, 'email@email', [user.email], fail_silently=False)
+        except SMTPException:
+            return JsonResponse({'status': 'smtp_exception'})
+
+        return JsonResponse({'status': 'success'})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -621,7 +632,7 @@ def del_adv(request):   # final version
         return JsonResponse({'status': 'request_error'})
 
 
-def edit_adv(request):  # Вова переделал
+def edit_adv(request):  # changed by Vova
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -630,8 +641,6 @@ def edit_adv(request):  # Вова переделал
                 adv = Advertisement.objects.get(pk=adv_id)
             except ObjectDoesNotExist:
                 return JsonResponse({'status': 'advertisement not found'})
-            except ValueError:
-                return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
                     params = request.POST.items()
@@ -642,17 +651,23 @@ def edit_adv(request):  # Вова переделал
                         else:
                             continue
                     arg_set = ('profile', 'title', 'description', 'condition', 'price', 'phone')
-                    # category_id = payload['category_id']
+                    category_id = payload['category_id']
                     city_id = payload['city_id']
                     for arg in arg_set:
                         if arg in payload:
                             setattr(adv, arg, payload[arg])
                         else:
                             continue
-                    # if category_id != '':
-                    #     adv.category = Category.objects.get(pk=category_id)
-                    if city_id != '':
-                        adv.city = City.objects.get(pk=city_id)
+                    if category_id != '':
+                        try:
+                            adv.category = Category.objects.get(pk=category_id)
+                        except ObjectDoesNotExist:
+                            return JsonResponse({'status': 'category not found'})
+                    try:
+                        if city_id != '':
+                            adv.city = City.objects.get(pk=city_id)
+                    except ObjectDoesNotExist:
+                            return JsonResponse({'status': 'city not found'})
                     adv.save()
                     return JsonResponse({'status': 'success'})
 
@@ -800,5 +815,38 @@ def delete_photos(request):  # final version
                 return JsonResponse({'status': 'successful delete'})
         else:
             return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# Test method
+def create_commercial(request):
+    banner_url = "http://vk.com"
+    adv_content = "http://127.0.0.1:8000/media/gorod-rome-italy.jpg"
+    adv_title = "test adv"
+    new_com = Commercial.objects.create(adv_url=banner_url, adv_content=adv_content,
+                                        adv_title=adv_title, is_shown=False)
+    new_com.save()
+    return JsonResponse({'status': 'success'})
+
+
+def periodic_task(request):
+    if request.method == 'GET':
+        category_list = Category.objects.all()
+
+        for category in category_list:
+
+            if category.notification_counter >= 7:
+                table_name = category.subscribers_table
+
+                users = list()  # get list of all user's id
+                for user in users:
+                    pass
+                    # push notification
+
+                category.notification_counter = 0
+                category.save()
+
+        return JsonResponse({'status': 'successful'})
     else:
         return JsonResponse({'status': 'request_error'})

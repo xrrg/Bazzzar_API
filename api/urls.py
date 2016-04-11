@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'logout/', views.log_out),
     url(r'change_email/', views.change_email),
     url(r'change_password/', views.change_password),
+    url(r'reset_password/', views.reset_password),
 
     # url(r'about/', views.documentation),
     url(r'add/', views.add_category),   # test function
@@ -35,6 +36,7 @@ urlpatterns = [
     url(r'tourism_filter/', views.tourism_filter),
     url(r'upload_photos/', views.upload_photos),
     url(r'delete_photos/', views.delete_photos),
+    url(r'create_commercial/', views.create_commercial),    # test
 
     url(r'', views.initialize),
 ]
