@@ -713,12 +713,16 @@ def upload_photos(request):  # final version
                                 handle_uploaded_file(uploaded_file, full_path)  # save .jpg file
                                 image_resize(full_path)  # resize image to S,M,L sizes
                                 success_upload.append(image_name)
+
+                                current_count += 1
                             else:
                                 handle_uploaded_file(uploaded_file, full_path)  # save source format file
 
                                 try:
                                     image_name = convert_to_jpg(full_path)  # create new file and remove source file
                                     success_upload.append(image_name)
+
+                                    current_count += 1
                                 except OSError:  # if not supported convert format
                                     failed_upload.append(uploaded_file.name)    # add failed filename
                                     os.remove(full_path)  # remove source file
@@ -734,7 +738,6 @@ def upload_photos(request):  # final version
                                 image_resize(full_path)  # resize image to S,M,L sizes
                         else:
                             break
-                        current_count += 1
 
                     images_str = ','.join(success_upload)  # save file names to Advertisement object
                     if advertisement.image_titles != '':

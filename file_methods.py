@@ -24,7 +24,7 @@ def get_path(id_profile):
     return final_path
 
 
-# write part of temporary file-objects to new file
+# write parts of temporary file-objects to new file
 def handle_uploaded_file(f, path):
     with open(path, 'wb+') as uploaded_file:
         for chunk in f.chunks():
@@ -44,23 +44,14 @@ def convert_to_jpg(infile_path):
 
 # Image resize to S,M,L sizes
 def image_resize(infile_path):
-    size_set = {'S': (128, 128), 'M': (256, 256), 'L': (512, 512)}
+    size_set = {'_S': (128, 128), '_M': (256, 256), '_L': (512, 512)}
     for size in size_set:
-        postfix = ''
-        if size == 'S':
-            postfix = '_S'
-        if size == 'M':
-            postfix = '_M'
-        if size == 'L':
-            postfix = '_L'
         try:
-            f, e = os.path.splitext(infile_path)
-            # print(f, e)
+            f, e = os.path.splitext(infile_path)    # f - part before '.', e - part after '.'
             img = Image.open(infile_path)
-            # print(size_set[size])
-            img.thumbnail(size_set[size])
-            full_name = f + postfix + '.jpg'
-            # print(full_name)
+            img.thumbnail(size_set[size])   # resize image
+
+            full_name = f + size + '.jpg'
             img.save(full_name, "JPEG")
         except IOError:
             pass
