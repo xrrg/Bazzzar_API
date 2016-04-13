@@ -37,6 +37,7 @@ urlpatterns = [
     url(r'upload_photos/', views.upload_photos),
     url(r'delete_photos/', views.delete_photos),
     url(r'create_commercial/', views.create_commercial),    # test
+    url(r'select_all/', views.select_all),  # test
 
     url(r'', views.initialize),
 ]

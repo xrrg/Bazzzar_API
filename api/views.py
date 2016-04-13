@@ -2,10 +2,11 @@
 import uuid
 import hashlib
 
+from smtplib import SMTPException
+
 from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
-from smtplib import SMTPException
 from django.shortcuts import render
 
 from .models import *
@@ -145,8 +146,7 @@ def insert_row(request):
     profile_list.append(user.id)    # добавление записи в список, для последующей передачи
 
     category = Category.objects.get(name='LOL')
-    category.insert_row(table_name=category.subscribers_table,
-                        profile_list=profile_list)
+    category.insert_row(profile_list=profile_list)
 
     return JsonResponse({'status': 'successfully add row'})
 
@@ -156,20 +156,22 @@ def add_subscription(request):
         user_profile = auth_check(request)
         if user_profile != 1:
             category_id = request.POST['category_id']
-            category = Category.objects.get(id=category_id)
+            try:
+                category = Category.objects.get(id=category_id)
 
-            if category:
-                try:
-                    profile_list = list()
-                    profile_list.append(user_profile.id)
-                    category.insert_row(table_name=category.subscribers_table,
-                                        profile_list=profile_list)
-                    return JsonResponse({'status': 'subscription successful add'})
+                if category:
+                    try:
+                        profile_list = list()
+                        profile_list.append(user_profile.id)
+                        category.insert_row(profile_list=profile_list)
 
-                except sqlite3.DatabaseError or sqlite3.DataError:
-                    return JsonResponse({'status': 'database error or data error'})
-            else:
-                return JsonResponse({'status': "category doesn't exist "})
+                        return JsonResponse({'status': 'subscription successful add'})
+
+                    except sqlite3.DatabaseError or sqlite3.DataError:
+                        return JsonResponse({'status': 'database error or data error'})
+
+            except ObjectDoesNotExist:
+                return JsonResponse({'status': "category doesn't exist"})
 
         else:
             return JsonResponse({'status': 'authentication_error'})
@@ -186,8 +188,7 @@ def delete_row(request):
     profile_list.append(user.id)    # добавление записи в список, для последующей передачи
 
     category = Category.objects.get(name='LOL')
-    category.delete_row(table_name=category.subscribers_table,
-                        profile_list=profile_list)
+    category.delete_row(profile_list=profile_list)
 
     return JsonResponse({'status': 'successfully delete row'})
 
@@ -203,8 +204,8 @@ def delete_subscription(request):
                 try:
                     profile_list = list()
                     profile_list.append(user_profile.id)
-                    category.delete_row(table_name=category.subscribers_table,
-                                        profile_list=profile_list)
+                    category.delete_row(profile_list=profile_list)
+
                     return JsonResponse({'status': 'subscription successful delete'})
 
                 except sqlite3.DatabaseError or sqlite3.DataError:
@@ -830,19 +831,38 @@ def create_commercial(request):
     return JsonResponse({'status': 'success'})
 
 
+# Test method
+def select_all(request):
+    if request.method == 'GET':
+        try:
+            category = Category.objects.get(id=6)
+            # table = category.subscribers_table
+
+            id_list = category.select_all()
+
+            return JsonResponse({'status': id_list})
+        except ObjectDoesNotExist:
+            return JsonResponse({'status': "category doesn't exist"})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
 def periodic_task(request):
     if request.method == 'GET':
         category_list = Category.objects.all()
-
+        critical_count = 7   # critical count of new advs to push notification
         for category in category_list:
 
-            if category.notification_counter >= 7:
-                table_name = category.subscribers_table
+            if category.notification_counter >= critical_count:
 
-                users = list()  # get list of all user's id
-                for user in users:
+                id_list = category.select_all()  # get list of all user's id from category table
+
+                for user_id in id_list:
+                    user = User.objects.get(id=user_id)
+                    # get device token from User.field, devices registered on GCM
                     pass
-                    # push notification
+                    # push notification method for Android
+                    # push notification method for iOS
 
                 category.notification_counter = 0
                 category.save()

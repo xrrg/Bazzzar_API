@@ -182,16 +182,17 @@ class Category(models.Model):
         finally:
             connection.close()
 
-    @staticmethod
-    def insert_row(database='db.sqlite3', table_name="", profile_list=list()):
+    def insert_row(self, database='db.sqlite3', profile_list=list()):
         connection = sqlite3.connect(database)
         cursor = connection.cursor()
 
         try:
             row_id = cursor.lastrowid
             for profile_id in profile_list:
-                cursor.execute("INSERT INTO %s (id, profile_id) VALUES(?, ?);" % table_name, (row_id, profile_id))
+                cursor.execute("INSERT INTO %s (id, profile_id) VALUES(?, ?);" % self.subscribers_table,
+                               (row_id, profile_id))
                 connection.commit()
+
         except sqlite3.Error as e:
             if connection:
                 connection.rollback()
@@ -200,14 +201,32 @@ class Category(models.Model):
         finally:
             connection.close()
 
-    @staticmethod
-    def delete_row(database='db.sqlite3', table_name="", profile_list=list()):
+    def select_all(self, database='db.sqlite3'):
+        connection = sqlite3.connect(database)
+        cursor = connection.cursor()
+        id_list = list()
+
+        try:
+            for row in cursor.execute('SELECT profile_id FROM %s ORDER BY profile_id' % self.subscribers_table):
+                id_list += list(row)    # convert tuple to list
+
+        except sqlite3.Error as e:
+            if connection:
+                connection.rollback()
+            print("Error %s:" % e.args[0])
+
+        finally:
+            connection.close()
+
+        return id_list
+
+    def delete_row(self, database='db.sqlite3', profile_list=list()):
         connection = sqlite3.connect(database)
         cursor = connection.cursor()
 
         try:
             for profile_id in profile_list:
-                cursor.execute("DELETE FROM %s WHERE profile_id = ?;" % table_name, (profile_id,))
+                cursor.execute("DELETE FROM %s WHERE profile_id = ?;" % self.subscribers_table, (profile_id,))
                 connection.commit()
         except sqlite3.Error as e:
             if connection:
