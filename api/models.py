@@ -20,6 +20,8 @@ class Profile(models.Model):
     userFavorites = models.CommaSeparatedIntegerField(blank=True, default='', max_length=1000)
     activation_key = models.CharField(max_length=50)
     folder_path = models.FilePathField(blank=True, default='')
+    android_tokens = models.CharField(max_length=10000, default='')  # TEST
+    ios_tokens = models.CharField(max_length=10000, default='')  # TEST
 
     def __str__(self):
         return self.user.username

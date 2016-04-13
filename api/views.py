@@ -15,6 +15,7 @@ from django.contrib import auth
 import sqlite3
 from parsing_string import *
 from file_methods import *
+from notifications import gcm_notification
 
 
 def initialize(request):  # load main.html
@@ -847,26 +848,55 @@ def select_all(request):
         return JsonResponse({'status': 'request_error'})
 
 
+def set_tokens(request):
+    """
+    Function set device's tokens to user profile
+    :param request: User token, tokens_list
+    :return: json response
+    """
+    if request.method == 'POST':
+        pass
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
 def periodic_task(request):
     if request.method == 'GET':
         category_list = Category.objects.all()
         critical_count = 7   # critical count of new advs to push notification
+        log_dict = dict()   # different instance of communication with GCM
+
         for category in category_list:
 
             if category.notification_counter >= critical_count:
 
                 id_list = category.select_all()  # get list of all user's id from category table
+                title = 'Bazzzar notification'
+                message = 'Appears {0} advs in category {1}'.format(category.notification_counter,
+                                                                    category.name)
+                android_tokens = list()
+                ios_tokens = list()
 
-                for user_id in id_list:
-                    user = User.objects.get(id=user_id)
-                    # get device token from User.field, devices registered on GCM
-                    pass
-                    # push notification method for Android
-                    # push notification method for iOS
+                for user in id_list:
+                    try:
+                        profile = Profile.objects.get(user_id=user)
+
+                        # get device token from Profile.field, devices registered on GCM
+                        android_tokens.extend(profile.android_tokens.split(','))
+
+                        # get device token from Profile.field, devices registered on APNs
+                        ios_tokens.extend(profile.ios_tokens.split(','))
+
+                    except ObjectDoesNotExist:
+                        pass
+
+                # push notification method for Android
+                log_dict[category.name] = gcm_notification(android_tokens, title, message)
+                # push notification method for iOS !!!!!!!!!!!!!!!!
 
                 category.notification_counter = 0
                 category.save()
 
-        return JsonResponse({'status': 'successful'})
+        return JsonResponse({'status': 'successful send notifications', 'logo': log_dict})
     else:
         return JsonResponse({'status': 'request_error'})
