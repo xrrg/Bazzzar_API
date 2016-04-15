@@ -8,6 +8,8 @@ from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.shortcuts import render
+from django.db import IntegrityError
+
 
 from .models import *
 from django.contrib import auth
@@ -15,7 +17,7 @@ from django.contrib import auth
 import sqlite3
 from parsing_string import *
 from file_methods import *
-from notifications import gcm_notification
+from notifications import gcm_notification, apns_notification
 
 
 def initialize(request):  # load main.html
@@ -583,7 +585,7 @@ def add_adv(request):
                     advertisement.category.save()
                     return JsonResponse({'status': 'Advertisement successful add'})
 
-            except Exception:
+            except IntegrityError or ObjectDoesNotExist:
                 return JsonResponse({'status': 'parameters_error'})
 
         else:
@@ -606,26 +608,30 @@ def del_adv(request):   # final version
                 return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
-                    sizes = ('L', 'M', 'S')
-                    image_list = adv.image_titles.split(',')
-                    path = user_profile.folder_path
+                    if adv.image_titles != '':
+                        sizes = ('L', 'M', 'S')
+                        image_list = adv.image_titles.split(',')
+                        path = user_profile.folder_path
 
-                    for image in image_list:
-                        full_path = path + image
-                        try:
-                            os.remove(full_path)    # delete source image
-                        except FileNotFoundError:
-                            pass
-
-                        for size in sizes:  # delete different sizes images
-                            full_path = path + image[:8] + '_' + size + '.jpg'
+                        for image in image_list:
+                            full_path = path + image
                             try:
-                                os.remove(full_path)
-                            except FileNotFoundError:
+                                os.remove(full_path)    # delete source image
+                            except FileNotFoundError or IsADirectoryError:
                                 pass
 
-                    adv.delete()
-                    return JsonResponse({'status': 'success'})
+                            for size in sizes:  # delete different sizes images
+                                full_path = path + image[:8] + '_' + size + '.jpg'
+                                try:
+                                    os.remove(full_path)
+                                except FileNotFoundError or IsADirectoryError:
+                                    pass
+
+                        adv.delete()
+                        return JsonResponse({'status': 'success'})
+                    else:
+                        adv.delete()
+                        return JsonResponse({'status': 'success'})
                 else:
                     return JsonResponse({'status': 'permission_error'})
         else:
@@ -848,22 +854,56 @@ def select_all(request):
         return JsonResponse({'status': 'request_error'})
 
 
-def set_tokens(request):
+def set_token(request):
     """
     Function set device's tokens to user profile
     :param request: User token, tokens_list
     :return: json response
     """
     if request.method == 'POST':
-        pass
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            # keys = list(request.POST.keys())
+            if request.POST['android'] != '':
+                if user_profile.android_tokens != '':
+                    tokens_list = user_profile.android_tokens.split(',')
+
+                    if request.POST['android'] in tokens_list:
+                        return JsonResponse({'status': "token exist"})
+                    else:
+                        tokens_list.append(request.POST['android'])
+                        user_profile.android_tokens = ','.join(tokens_list)
+                else:
+                    user_profile.android_tokens = request.POST['android']
+                user_profile.save()
+                return JsonResponse({'status': 'successful add android token'})
+
+            elif request.POST['ios'] != '':
+                if user_profile.ios_tokens != '':
+                    tokens_list = user_profile.ios_tokens.split(',')
+
+                    if request.POST['ios'] in tokens_list:
+                        return JsonResponse({'status': "token exist"})
+                    else:
+                        tokens_list.append(request.POST['ios'])
+                        user_profile.ios_tokens = ','.join(tokens_list)
+                else:
+                    user_profile.ios_tokens = request.POST['ios']
+                user_profile.save()
+                return JsonResponse({'status': 'successful add ios token'})
+
+            else:
+                return JsonResponse({'status': "request didn't have the necessary data"})
+        else:
+            return JsonResponse({'status': 'authentication_error'})
     else:
         return JsonResponse({'status': 'request_error'})
 
 
-def periodic_task(request):
+def periodic_task(request):  # test version
     if request.method == 'GET':
         category_list = Category.objects.all()
-        critical_count = 7   # critical count of new advs to push notification
+        critical_count = 7   # critical count of new advs to push notification. unreaded notifications number
         log_dict = dict()   # different instance of communication with GCM
 
         for category in category_list:
@@ -892,7 +932,8 @@ def periodic_task(request):
 
                 # push notification method for Android
                 log_dict[category.name] = gcm_notification(android_tokens, title, message)
-                # push notification method for iOS !!!!!!!!!!!!!!!!
+                # push notification method for iOS
+                # apns_notification(ios_tokens, message)            <<<<<<-------------------- iOS  notification
 
                 category.notification_counter = 0
                 category.save()

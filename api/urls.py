@@ -38,6 +38,7 @@ urlpatterns = [
     url(r'delete_photos/', views.delete_photos),
     url(r'create_commercial/', views.create_commercial),  # test
     url(r'select_all/', views.select_all),  # test
+    url(r'set_token/', views.set_token),
     url(r'periodic_task/', views.periodic_task),
 
     url(r'', views.initialize),

@@ -3,6 +3,7 @@
 <head>
     <title>Test Form for API</title>
     <link rel="stylesheet" type="text/css" href="">
+    <meta charset="utf-8">
 </head>
 <body>
     <h3>Log in</h3>
@@ -370,6 +371,23 @@
         <br>
         <br>
         <input class="button" type="submit" value="Delete from server">
+    </form>
+
+    <h3>Set token</h3>
+    <form action="http://127.0.0.1:8000/api/set_token/" method="post" enctype="multipart/form-data">
+        <label for="token">Request token</label>
+        <input type="text" name="token" id="token">
+        <br>
+        <br>
+        <label for="android">Android token</label>
+        <input type="text" name="android" id="android" maxlength="255">
+        <br>
+        <br>
+        <label for="ios">iOS token</label>
+        <input type="text" name="ios" id="ios" maxlength="255">
+        <br>
+        <br>
+        <input class="button" type="submit" value="Send token">
     </form>
 </body>
 </html>
