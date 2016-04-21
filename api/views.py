@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*
 import uuid
 import hashlib
+import time
+from smtplib import SMTPException
 
 from django.http import JsonResponse
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
-from smtplib import SMTPException
 from django.shortcuts import render
+from django.db import IntegrityError
+
 
 from .models import *
 from django.contrib import auth
 
+
+import datetime
+import json
 import sqlite3
 from parsing_string import *
 from file_methods import *
+from notifications import gcm_notification, apns_notification
 
 
 def initialize(request):  # load main.html
@@ -21,6 +28,14 @@ def initialize(request):  # load main.html
     return render(request, '', context)
 
 
+def generate_token(input_string=str()):
+    salt = hashlib.sha1(str(random.random()).encode('utf-8')).hexdigest()[:5]
+    salted_username = salt + input_string
+    token = hashlib.sha1(salted_username.encode('utf-8')).hexdigest()
+    return token
+
+
+# final version
 def register(request):
     if request.method == 'POST':
         email = request.POST['email']
@@ -28,13 +43,11 @@ def register(request):
         password = request.POST['password']
         new_user = User.objects.create_user(username=username, password=password, email=email)
         new_user.save()
-        salt = hashlib.sha1(str(random.random()).encode('utf-8')).hexdigest()[:5]
-        salted_username = salt + new_user.username
-        token = hashlib.sha1(salted_username.encode('utf-8')).hexdigest()  # TODO: add confirmation email
-        # СТРАНННО ЧТО token = activation_key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        new_profile = Profile(user=new_user, token=token,
-                              activation_key=token)
+        token = generate_token(new_user.username)
+        # token equel activation_key !!!!!
+        new_profile = Profile(user=new_user, token=token)   # activation_key=token
+
         new_profile.save()
 
         return JsonResponse({"status": "successful user registration", "token": token})
@@ -42,6 +55,7 @@ def register(request):
         return JsonResponse({"status": "error"})
 
 
+# final version
 def auth_check(request):
     """
     Correct input and permissions check. Returns user profile in case of success
@@ -63,6 +77,7 @@ def auth_check(request):
     return 1
 
 
+# final version
 def log_in(request):
     if request.method == 'POST':
         username = request.POST['username']
@@ -70,14 +85,16 @@ def log_in(request):
         user = auth.authenticate(username=username, password=password)
         if user is not None:
             auth.login(request, user)
+            profile = Profile.objects.get(user=user)
 
-            return JsonResponse({"status": "successful log in"})
+            return JsonResponse({"status": "successful log in", "token": profile.token})
         else:
             return JsonResponse({"status": "authentication error"})
     else:
         return JsonResponse({"status": "error"})
 
 
+# final version
 def log_out(request):
     if request.method == 'GET':
         user = auth.get_user(request)
@@ -89,34 +106,41 @@ def log_out(request):
         return JsonResponse({"status": "error"})
 
 
+# final version
 def change_email(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             new_email = request.POST['new_email']
+            user_profile.token = generate_token(new_email)
+            user_profile.save()
             user_profile.user.email = new_email
             user_profile.user.save()
-            return JsonResponse({'status': 'e-mail successful changed'})
+            return JsonResponse({'status': 'e-mail successful changed', 'new_token': user_profile.token})
         else:
             return JsonResponse({'status': 'authentication_error'})
     else:
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
 def change_password(request):  # mobile client handles old password check
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
             new_password = request.POST['new_password']
+            user_profile.token = generate_token(new_password)
+            user_profile.save()
             user_profile.user.set_password(new_password)
             user_profile.user.save()
-            return JsonResponse({'status': 'password successful changed'})
+            return JsonResponse({'status': 'password successful changed', 'new_token': user_profile.token})
         else:
             return JsonResponse({'status': 'authentication_error'})
     else:
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
 def reset_password(request):
     if request.method == 'POST':
         user_login = request.POST['login']
@@ -136,102 +160,24 @@ def reset_password(request):
         return JsonResponse({'status': 'request_error'})
 
 
-# тестовый вариант. будь осторожен, путник
-def insert_row(request):
-    profile_list = list()
-    user = User.objects.get(id=3)   # can delete list of records
-
-    # for user in users:
-    profile_list.append(user.id)    # добавление записи в список, для последующей передачи
-
-    category = Category.objects.get(name='LOL')
-    category.insert_row(table_name=category.subscribers_table,
-                        profile_list=profile_list)
-
-    return JsonResponse({'status': 'successfully add row'})
-
-
-def add_subscription(request):
+# final version
+def get_favorites(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
-            category_id = request.POST['category_id']
-            category = Category.objects.get(id=category_id)
+            json_dict = dict()
+            favorites_list = get_int_list(user_profile.userFavorites)
 
-            if category:
-                try:
-                    profile_list = list()
-                    profile_list.append(user_profile.id)
-                    category.insert_row(table_name=category.subscribers_table,
-                                        profile_list=profile_list)
-                    return JsonResponse({'status': 'subscription successful add'})
-
-                except sqlite3.DatabaseError or sqlite3.DataError:
-                    return JsonResponse({'status': 'database error or data error'})
-            else:
-                return JsonResponse({'status': "category doesn't exist "})
-
+            json_dict['records'] = favorites_list
+            json_dict['datatime'] = user_profile.datatime_favorites
+            return JsonResponse(json_dict)
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': 'authentication_error or missing token'})
     else:
         return JsonResponse({'status': 'request_error'})
 
 
-# тестовый вариант. будь осторожен, путник
-def delete_row(request):
-    profile_list = list()
-    user = User.objects.get(id=3)   # can delete list of users
-
-    # for user in users:
-    profile_list.append(user.id)    # добавление записи в список, для последующей передачи
-
-    category = Category.objects.get(name='LOL')
-    category.delete_row(table_name=category.subscribers_table,
-                        profile_list=profile_list)
-
-    return JsonResponse({'status': 'successfully delete row'})
-
-
-def delete_subscription(request):
-    if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
-            category_id = request.POST['category_id']
-            category = Category.objects.get(id=category_id)
-
-            if category:
-                try:
-                    profile_list = list()
-                    profile_list.append(user_profile.id)
-                    category.delete_row(table_name=category.subscribers_table,
-                                        profile_list=profile_list)
-                    return JsonResponse({'status': 'subscription successful delete'})
-
-                except sqlite3.DatabaseError or sqlite3.DataError:
-                    return JsonResponse({'status': 'database error or data error'})
-            else:
-                return JsonResponse({'status': "category doesn't exist "})
-
-        else:
-            return JsonResponse({'status': 'authentication_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-
-
-# тестовый вариант. будь осторожен, путник
-def add_category(request):
-    Category(name='#').save()
-
-    return JsonResponse({'status': 'successfully added'})
-
-
-# тестовый вариант. будь осторожен, путник
-def delete_category(request):
-    Category.objects.get(name='#').delete()
-
-    return JsonResponse({'status': 'successfully deleted'})
-
-
+# final version
 def add_favorite(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
@@ -242,6 +188,7 @@ def add_favorite(request):
             else:
                 user_profile.userFavorites = add_to_str(user_profile.userFavorites, adv_id)  # '1,2,4' + ',' + '7'
                 # or only '7' if source string is empty
+                user_profile.datatime_favorites = datetime.datetime.now()
                 user_profile.save()
             return JsonResponse({'status': 'success'})
         else:
@@ -250,6 +197,7 @@ def add_favorite(request):
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
 def delete_favorite(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
@@ -259,6 +207,7 @@ def delete_favorite(request):
             if adv_id in int_list:
                 int_list.remove(adv_id)
                 user_profile.userFavorites = str_from_int_list(int_list)
+                user_profile.datatime_favorites = datetime.datetime.now()
                 user_profile.save()
                 return JsonResponse({'status': 'success'})
             else:
@@ -269,75 +218,253 @@ def delete_favorite(request):
         return JsonResponse({'status': 'request_error'})
 
 
+#  final version
+def get_subscriptions(request):
+    if request.method == 'POST':
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            json_dict = dict()
+            subscriptions_list = get_int_list(user_profile.userSubscriptions)
+
+            json_dict['records'] = subscriptions_list
+            json_dict['datatime'] = user_profile.datatime_subscriptions
+            return JsonResponse(json_dict)
+        else:
+            return JsonResponse({'status': 'authentication_error or missing token'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# final version
+def add_subscription(request):
+    if request.method == 'POST':
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            try:
+                category_id = str(request.POST['category_id'])
+                if category_id in user_profile.userSubscriptions:
+                    return JsonResponse({'status': "category_id already exist in userSubscriptions"})
+                else:
+                    try:
+                        category = Category.objects.get(id=category_id)
+
+                        try:
+                            profile_list = list()
+                            profile_list.append(user_profile.id)
+                            category.insert_row_subscriber(profile_list=profile_list)
+
+                            user_profile.userSubscriptions = add_to_str(user_profile.userSubscriptions, category_id)
+                            user_profile.datatime_subscriptions = datetime.datetime.now()
+                            user_profile.save()
+                            return JsonResponse({'status': 'subscription successful add'})
+
+                        except sqlite3.DatabaseError or sqlite3.DataError:
+                            return JsonResponse({'status': 'database error or data error'})
+
+                    except ObjectDoesNotExist:
+                        return JsonResponse({'status': "category doesn't exist"})
+
+            except ValueError:
+                return JsonResponse({'status': "input value error"})
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# final version
+def delete_subscription(request):
+    if request.method == 'POST':
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            try:
+                category_id = int(request.POST['category_id'])
+                int_list = get_int_list(user_profile.userSubscriptions)  # get int list of subscriptions (id categories)
+                if category_id in int_list:
+                    try:
+                        category = Category.objects.get(id=category_id)
+                        try:
+                            profile_list = list()
+                            profile_list.append(user_profile.id)
+                            category.delete_row_subscriber(profile_list=profile_list)   # delete from table
+
+                            int_list.remove(category_id)
+                            user_profile.userSubscriptions = str_from_int_list(int_list)    # delete from field
+                            user_profile.save()
+
+                            return JsonResponse({'status': 'subscription successful delete'})
+
+                        except sqlite3.DatabaseError or sqlite3.DataError:
+                            return JsonResponse({'status': 'database error or data error'})
+
+                    except ObjectDoesNotExist:
+                        return JsonResponse({'status': "category doesn't exist"})
+                else:
+                    return JsonResponse({'status': "not found subscription or user subscribers string empty"})
+            except ValueError:
+                return JsonResponse({'status': "input value error"})
+
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# тестовый вариант
+def add_category(request):
+    Category(name='TEST').save()
+
+    return JsonResponse({'status': 'successfully added'})
+
+
+# тестовый вариант
+def delete_category(request):
+    Category.objects.get(name='TEST').delete()
+
+    return JsonResponse({'status': 'successfully deleted'})
+
+
+# final version
 def get_categories(request):
     """
     Function return data with existing categories (id, name) in json-format
     :param request: user token
     :return: json dictionary
     """
-    if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
-            json_dict = dict()
-            json_dict['table'] = 'categories'
-            category_records = Category.objects.all()
-            json_dict['records_number'] = len(category_records)
+    if request.method == 'GET':  # need change to GET
+        json_dict = dict()
+        category_records = Category.objects.all()
 
-            records_dict = dict()
-            for i in range(0, len(category_records)):
-                records_dict[i+1] = {
-                    'id': category_records[i].pk,
-                    'name': category_records[i].name,
-                }
-            json_dict['records'] = records_dict
-            return JsonResponse(json_dict)
-        else:
-            return JsonResponse({'status': 'authentication_error'})
+        records_list = list()
+        for i in range(0, len(category_records)):
+            record = {
+                'id': category_records[i].pk,
+                'name': category_records[i].name,
+            }
+            records_list.append(record)
+        json_dict['records'] = records_list
+        json_dict['last_change'] = DatatimeTable.objects.get(name=Category._meta.db_table).datatime
+        return JsonResponse(json_dict)
     else:
         return JsonResponse({'status': 'request_error'})
 
 
-def get_advs_by_id(request):
+# final version
+def get_cities(request):
+    if request.method == 'GET':  # need change to GET
+        json_dict = dict()
+        city_records = City.objects.all()
+
+        records_list = list()
+        for i in range(0, len(city_records)):
+            record = {
+                'id': city_records[i].pk,
+                'name': city_records[i].name,
+            }
+            records_list.append(record)
+        json_dict['records'] = records_list
+
+        json_dict['last_change'] = DatatimeTable.objects.get(name=City._meta.db_table).datatime
+        return JsonResponse(json_dict)
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# final version
+def get_extrafields_description(request):
+    if request.method == 'GET':  # need change to GET
+        json_dict = dict()
+        extrafield_objects = ExtraFieldDescription.objects.all()
+
+        records_list = list()
+        for extrafield in extrafield_objects:
+            element = {
+                'id': extrafield.id,
+                'name': extrafield.name,
+                'min_int': extrafield.min_int,
+                'max_int': extrafield.max_int,
+                'string_set': extrafield.string_set,
+                'data_type': extrafield.data_type,
+                'category_id': extrafield.category_id,
+                'boolean': extrafield.boolean,
+            }
+            records_list.append(element)
+        json_dict['records'] = records_list
+        json_dict['last_change'] = DatatimeTable.objects.get(name=ExtraFieldDescription._meta.db_table).datatime
+        return JsonResponse(json_dict)
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# TEST for unixtime, class Meta etc.
+def get_unixtime(request):
+    if request.method == 'GET':
+        s = Advertisement.objects.get(id=32).datatime   # datetime.datetime(2016, 4, 19, 10, 17, 17, 135925,
+        # tzinfo=<UTC>)
+        p = Advertisement.objects.get(id=33).datatime
+
+        boolean = False
+        unixtime1 = time.mktime(s.timetuple())
+        if isinstance(unixtime1, float):
+            boolean = True
+
+        unixtime2 = time.mktime(p.timetuple())
+
+        d = datetime.datetime.now()
+        unixtime_now = time.mktime(d.timetuple())
+
+        return JsonResponse({'32': unixtime1, '33': unixtime2, 'unixtime_now': unixtime_now, 'boolean': boolean,
+                             'table_name': [Category._meta.db_table, City._meta.db_table,
+                                            ExtraFieldDescription._meta.db_table]})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# final version, get by unix date from POST request without auth check
+def get_advs_by_datatime(request):
     """
     Function return data with existing categories (id, name) in json-format
     :param request: user token, list of ids Advertisement objects
     :return:json objects
     """
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
-            id_str = request.POST['id']
-            id_list = get_int_list(id_str)
-            json_dict = dict()
-            json_dict['table'] = 'advertisements_by_ids'
-            not_found_records_list = []
-            records = dict()
-            i = 1
-            for x in id_list:
-                try:
-                    record = Advertisement.objects.get(pk=x)
-                except ObjectDoesNotExist:
-                    not_found_records_list.append(x)
-                    continue
+        unixtime = float(request.POST['unixtime'])
+        json_dict = dict()
+        records = dict()
+        i = 0
+
+        advs = Advertisement.objects.all()
+        for adv in advs:
+            if unixtime < time.mktime(adv.datatime.timetuple()):
+                category = Category.objects.get(id=adv.category_id)
+                extrafield_dict = category.select_all_extrafields(advertisement_id=adv.id)
+
                 records[i] = {
-                    'profile':  record.profile.user.username,
-                    'category':  record.category.name,
-                    'city':  record.city.name,
-                    'title': record.title,
-                    'description': record.description,
-                    'condition': str(record.condition),
-                    'phone': record.phone
+                    'id': adv.id,
+                    'profile':  adv.profile.id,
+                    'category':  adv.category.name,
+                    'city':  adv.city.name,
+                    'title': adv.title,
+                    'price': adv.price,
+                    'description': adv.description,
+                    'condition': str(adv.condition),
+                    'phone': adv.phone,
+                    'datatime': adv.datatime,
+                    'extrafields': extrafield_dict
                 }
                 i += 1
-            json_dict['records'] = records
-            json_dict['id_not_found'] = not_found_records_list
-            return JsonResponse(json_dict)
-        else:
-            return JsonResponse({'status': 'authentication_error'})
+
+        json_dict['records'] = records
+        json_dict['request_datatime'] = datetime.datetime.now()
+        # json_dict['id_not_found'] = not_found_records_list
+        json_dict['records_count'] = i
+        return JsonResponse(json_dict)
+
     else:
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
 def get_str_params(request, str_list):
     """
     Function get required str parameters from POST method
@@ -353,6 +480,7 @@ def get_str_params(request, str_list):
     return kwargs
 
 
+# final version
 def get_int_params(request, str_list):
     """
     Function get required int parameters from POST method
@@ -369,7 +497,8 @@ def get_int_params(request, str_list):
     return kwargs
 
 
-def base_filter(request):  # add contains filter to title
+# final version, added unix time filtration
+def base_filter(request):
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'condition', 'price']
@@ -378,16 +507,49 @@ def base_filter(request):  # add contains filter to title
         try:
             params.update(get_int_params(request, int_filters))
             params.update(get_str_params(request, str_filters))
+            json_dict = dict()
+            records = dict()
+            i = 0
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
+            result_advs = list()    # put advs after data time filtration
 
-            return JsonResponse({'status': 'success', 'values': advs_list})
+            if request.POST['unixtime'] != '':
+                unixtime = request.POST['unixtime']
+                if isinstance(float(unixtime), float):
+                    unixtime = float(request.POST['unixtime'])
+                    for adv in advs:
+                        if unixtime < time.mktime(adv.datatime.timetuple()):
+                            result_advs.append(adv)
+                else:
+                    result_advs.extend(advs)
+            else:
+                result_advs.extend(advs)
+
+            for adv in result_advs:
+                category = Category.objects.get(id=adv.category_id)
+                extrafield_dict = category.select_all_extrafields(advertisement_id=adv.id)
+
+                records[i] = {
+                    'id': adv.id,
+                    'profile':  adv.profile.id,
+                    'category':  adv.category.id,
+                    'city':  adv.city.id,
+                    'title': adv.title,
+                    'price': adv.price,
+                    'description': adv.description,
+                    'condition': str(adv.condition),
+                    'phone': adv.phone,
+                    'datatime': adv.datatime,
+                    'extrafields': extrafield_dict
+                }
+                i += 1
+            json_dict['records'] = records
+            json_dict['records_count'] = i
+
+            json_dict['status'] = 'success'
+
+            return JsonResponse(json_dict)
 
         except ValueError:
             return JsonResponse({'status': 'value_error'})
@@ -395,12 +557,91 @@ def base_filter(request):  # add contains filter to title
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
+def extended_filter(request):   # extend base filter
+    if request.method == 'POST':
+        params = dict()
+        int_filters = ['category', 'city', 'condition', 'price']
+        str_filters = ['title__contains']
+
+        try:
+            params.update(get_int_params(request, int_filters))
+            params.update(get_str_params(request, str_filters))
+            json_dict = dict()
+            records = dict()
+            i = 0
+
+            advs = Advertisement.objects.filter(**params)
+            filtered_advs = list()    # put advs after data time filtration
+
+            if request.POST['unixtime'] != '':
+                unixtime = request.POST['unixtime']
+                if isinstance(float(unixtime), float):
+                    unixtime = float(request.POST['unixtime'])
+
+                    for adv in advs:
+                        if unixtime < time.mktime(adv.datatime.timetuple()):
+                            filtered_advs.append(adv)
+                else:
+                    filtered_advs.extend(advs)  # get filtered objects by unixtime
+            else:
+                filtered_advs.extend(advs)  # get filtered objects by params
+
+            result_advs = list()  # advs after extra fields filtration or not
+            if request.POST['json_object'] != '':  # check for extra fields params
+                data = json.loads(request.POST.get('json_object'))
+                list_of_dictionary = data['extrafields']
+                for adv in filtered_advs:
+                    counter = 0
+                    for dictionary in list_of_dictionary:
+                        if adv.category.select_row_extrafield(extrafield_id=int(dictionary['id']),
+                                                              advertisement_id=adv.id,
+                                                              string_value=dictionary['value']):
+                            # search extra field from POST to current adv
+                            counter += 1
+                    if counter == len(list_of_dictionary):  # if find all extra fields from POST to current adv
+                        result_advs.append(adv)
+            else:
+                result_advs.extend(filtered_advs)
+
+            for adv in result_advs:  # formation adv to json response
+                extrafield_dict = adv.category.select_all_extrafields(advertisement_id=adv.id)
+
+                records[i] = {
+                    'id': adv.id,
+                    'profile':  adv.profile.id,
+                    'category':  adv.category.id,
+                    'city':  adv.city.id,
+                    'title': adv.title,
+                    'price': adv.price,
+                    'description': adv.description,
+                    'condition': str(adv.condition),
+                    'phone': adv.phone,
+                    'datatime': adv.datatime,
+                    'extrafields': extrafield_dict
+                }
+                i += 1
+            json_dict['records'] = records
+            json_dict['records_count'] = i
+
+            json_dict['status'] = 'success'
+
+            return JsonResponse(json_dict)
+
+        except ValueError:
+            return JsonResponse({'status': 'value_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+"""
+# NEED FIX
 def house_filter(request):  # maybe category = 'House' by default
-    """
-    Function filter Advertisement Objects (Houses) by parameters gotten from POST request  and return them.
-    :param request:
-    :return: json descriptions of house objects
-    """
+
+#    Function filter Advertisement Objects (Houses) by parameters gotten from POST request  and return them.
+#    :param request:
+#    :return: json descriptions of house objects
+
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'price']
@@ -411,9 +652,9 @@ def house_filter(request):  # maybe category = 'House' by default
             params.update(get_str_params(request, str_filters))
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
+
+            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
+
             advs_list = list()
             for adv in advs:
                 advs_list.append(adv.title)
@@ -426,13 +667,14 @@ def house_filter(request):  # maybe category = 'House' by default
         return JsonResponse({'status': 'request_error'})
 
 
+# NEED FIX
 def transport_filter(request):  # maybe category = 'Auto' by default
-    """
-    Function filter Advertisement Objects (Auto, Motorcycles, Bicycles)
-    by parameters gotten from POST request  and return them.
-    :param request:
-    :return: json descriptions of house objects
-    """
+"""
+#    Function filter Advertisement Objects (Auto, Motorcycles, Bicycles)
+#    by parameters gotten from POST request  and return them.
+#    :param request:
+#    :return: json descriptions of house objects
+"""
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'price', 'transport__year', 'transport__motor_power']
@@ -442,9 +684,9 @@ def transport_filter(request):  # maybe category = 'Auto' by default
             params.update(get_str_params(request, str_filters))
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
+
+            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
+
             advs_list = list()
             for adv in advs:
                 advs_list.append(adv.title)
@@ -457,13 +699,14 @@ def transport_filter(request):  # maybe category = 'Auto' by default
         return JsonResponse({'status': 'request_error'})
 
 
+# NEED FIX
 def clothes_filter(request):
-    """
-    Function filter Advertisement Objects (Clothes)
-    by parameters gotten from POST request  and return them.
-    :param request:
-    :return: json descriptions of house objects
-    """
+"""
+#    Function filter Advertisement Objects (Clothes)
+#    by parameters gotten from POST request  and return them.
+#    :param request:
+#    :return: json descriptions of house objects
+"""
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'price', 'clothes__sex']
@@ -473,9 +716,9 @@ def clothes_filter(request):
             params.update(get_str_params(request, str_filters))
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
+
+            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
+
             advs_list = list()
             for adv in advs:
                 advs_list.append(adv.title)
@@ -488,13 +731,14 @@ def clothes_filter(request):
         return JsonResponse({'status': 'request_error'})
 
 
+# NEED FIX
 def kidsthings_filter(request):
-    """
-    Function filter Advertisement Objects (Kids Things)
-    by parameters gotten from POST request  and return them.
-    :param request:
-    :return: json descriptions of house objects
-    """
+"""
+#    Function filter Advertisement Objects (Kids Things)
+#    by parameters gotten from POST request  and return them.
+#    :param request:
+#    :return: json descriptions of house objects
+"""
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'price', 'kids_things__sex', 'kids_things__age']
@@ -505,9 +749,9 @@ def kidsthings_filter(request):
             params.update(get_str_params(request, str_filters))
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
+
+            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
+
             advs_list = list()
             for adv in advs:
                 advs_list.append(adv.title)
@@ -520,13 +764,13 @@ def kidsthings_filter(request):
         return JsonResponse({'status': 'request_error'})
 
 
+# NEED FIX
 def tourism_filter(request):
-    """
-    Function filter Advertisement Objects (Tourism)
-    by parameters gotten from POST request  and return them.
-    :param request:
-    :return: json descriptions of house objects
-    """
+"""
+#    Function filter Advertisement Objects (Tourism)
+#    :param request:
+#    :return: json descriptions of house objects
+"""
     if request.method == 'POST':
         params = dict()
         int_filters = ['category', 'city', 'price']
@@ -537,9 +781,9 @@ def tourism_filter(request):
             params.update(get_str_params(request, str_filters))
 
             advs = Advertisement.objects.filter(**params)
-            """
-            доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-            """
+
+            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
+
             advs_list = list()
             for adv in advs:
                 advs_list.append(adv.title)
@@ -550,8 +794,10 @@ def tourism_filter(request):
             return JsonResponse({'status': 'value_error'})
     else:
         return JsonResponse({'status': 'request_error'})
+"""
 
 
+# final version, data = json.loads(request.POST.get('json_object'))
 def add_adv(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
@@ -559,6 +805,10 @@ def add_adv(request):
             params = dict()
             int_args = ['condition', 'price']
             str_args = ['title', 'description', 'phone']
+
+            for key in str_args:
+                if request.POST[key] == '':
+                    return JsonResponse({'status': 'parameters_error'})
 
             try:
                 params['profile'] = user_profile
@@ -574,14 +824,23 @@ def add_adv(request):
                 params.update(get_int_params(request, int_args))
                 params.update(get_str_params(request, str_args))
 
-                advertisement = Advertisement.objects.create(**params)
+                advertisement = Advertisement.objects.create(**params)  # must be IntegrityError or ObjectDoesNotExist
+
                 if advertisement:
                     advertisement.save()
                     advertisement.category.notification_counter += 1
                     advertisement.category.save()
+
+                    data = json.loads(request.POST.get('json_object'))
+                    list_of_dictionary = data['extrafields']
+                    for dictionary in list_of_dictionary:
+                        advertisement.category.insert_row_extrafield(extrafield_id=dictionary['id'],
+                                                                     advertisement_id=advertisement.id,
+                                                                     string_value=str(dictionary['value']))
+
                     return JsonResponse({'status': 'Advertisement successful add'})
 
-            except Exception:
+            except IntegrityError or ObjectDoesNotExist:
                 return JsonResponse({'status': 'parameters_error'})
 
         else:
@@ -590,8 +849,8 @@ def add_adv(request):
         return JsonResponse({'status': 'request_error'})
 
 
-###############################################################################################
-def del_adv(request):   # final version
+# final version
+def del_adv(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -604,26 +863,33 @@ def del_adv(request):   # final version
                 return JsonResponse({'status': "adv_id value error"})
             else:
                 if adv.profile.pk == user_profile.pk:
-                    sizes = ('L', 'M', 'S')
-                    image_list = adv.image_titles.split(',')
-                    path = user_profile.folder_path
+                    category = Category.objects.get(id=adv.category_id)  # get related category object
+                    category.delete_rows_extrafield(advertisement_id=adv.id)  # delete extra fields related with adv
 
-                    for image in image_list:
-                        full_path = path + image
-                        try:
-                            os.remove(full_path)    # delete source image
-                        except FileNotFoundError:
-                            pass
+                    if adv.image_titles != '':
+                        sizes = ('L', 'M', 'S')
+                        image_list = adv.image_titles.split(',')
+                        path = user_profile.folder_path
 
-                        for size in sizes:  # delete different sizes images
-                            full_path = path + image[:8] + '_' + size + '.jpg'
+                        for image in image_list:
+                            full_path = path + image
                             try:
-                                os.remove(full_path)
-                            except FileNotFoundError:
+                                os.remove(full_path)    # delete source image
+                            except FileNotFoundError or IsADirectoryError:
                                 pass
 
-                    adv.delete()
-                    return JsonResponse({'status': 'success'})
+                            for size in sizes:  # delete different sizes images
+                                full_path = path + image[:8] + '_' + size + '.jpg'
+                                try:
+                                    os.remove(full_path)
+                                except FileNotFoundError or IsADirectoryError:
+                                    pass
+
+                        adv.delete()
+                        return JsonResponse({'status': 'success'})
+                    else:
+                        adv.delete()
+                        return JsonResponse({'status': 'success'})
                 else:
                     return JsonResponse({'status': 'permission_error'})
         else:
@@ -632,7 +898,8 @@ def del_adv(request):   # final version
         return JsonResponse({'status': 'request_error'})
 
 
-def edit_adv(request):  # changed by Vova
+# final version
+def edit_adv(request):
     if request.method == 'POST':
         user_profile = auth_check(request)
         if user_profile != 1:
@@ -669,6 +936,17 @@ def edit_adv(request):  # changed by Vova
                     except ObjectDoesNotExist:
                             return JsonResponse({'status': 'city not found'})
                     adv.save()
+
+                    data = json.loads(request.POST.get('json_object'))  # change extra fields in adv
+                    list_of_dictionary = data['extrafields']
+                    try:
+                        for dictionary in list_of_dictionary:
+                            adv.category.update_row_extrafield(string_value=str(dictionary['value']),
+                                                               extrafield_id=int(dictionary['id']),
+                                                               advertisement_id=int(adv.id))
+                    except sqlite3.DatabaseError or sqlite3.DataError:
+                        return JsonResponse({'status': 'database error or data error'})
+
                     return JsonResponse({'status': 'success'})
 
                 else:
@@ -679,7 +957,8 @@ def edit_adv(request):  # changed by Vova
         return JsonResponse({'status': 'request_error'})
 
 
-def upload_photos(request):  # final version
+# final version
+def upload_photos(request):
     """
     Function processes the incoming images
     :param request: user token, advertisement id
@@ -774,6 +1053,7 @@ def upload_photos(request):  # final version
         return JsonResponse({'status': 'request_error'})
 
 
+# final version
 def delete_photos(request):  # final version
     """
     Function processes the incoming requests to delete photos
@@ -819,7 +1099,7 @@ def delete_photos(request):  # final version
         return JsonResponse({'status': 'request_error'})
 
 
-# Test method
+#  not final version / Test method
 def create_commercial(request):
     banner_url = "http://vk.com"
     adv_content = "http://127.0.0.1:8000/media/gorod-rome-italy.jpg"
@@ -830,23 +1110,111 @@ def create_commercial(request):
     return JsonResponse({'status': 'success'})
 
 
-def periodic_task(request):
+# Test method
+def select_all(request):
+    if request.method == 'GET':
+        try:
+            category = Category.objects.get(id=26)
+            # table = category.subscribers_table
+
+            id_list = category.select_all_subscribers()
+
+            return JsonResponse({'status': id_list})
+        except ObjectDoesNotExist:
+            return JsonResponse({'status': "category doesn't exist"})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# final version
+def set_token(request):
+    """
+    Function set device's tokens to user profile
+    :param request: User token, tokens_list
+    :return: json response
+    """
+    if request.method == 'POST':
+        user_profile = auth_check(request)
+        if user_profile != 1:
+            # keys = list(request.POST.keys())
+            if request.POST['android'] != '':
+                if user_profile.android_tokens != '':
+                    tokens_list = user_profile.android_tokens.split(',')
+
+                    if request.POST['android'] in tokens_list:
+                        return JsonResponse({'status': "token exist"})
+                    else:
+                        tokens_list.append(request.POST['android'])
+                        user_profile.android_tokens = ','.join(tokens_list)
+                else:
+                    user_profile.android_tokens = request.POST['android']
+                user_profile.save()
+                return JsonResponse({'status': 'successful add android token'})
+
+            elif request.POST['ios'] != '':
+                if user_profile.ios_tokens != '':
+                    tokens_list = user_profile.ios_tokens.split(',')
+
+                    if request.POST['ios'] in tokens_list:
+                        return JsonResponse({'status': "token exist"})
+                    else:
+                        tokens_list.append(request.POST['ios'])
+                        user_profile.ios_tokens = ','.join(tokens_list)
+                else:
+                    user_profile.ios_tokens = request.POST['ios']
+                user_profile.save()
+                return JsonResponse({'status': 'successful add ios token'})
+
+            else:
+                return JsonResponse({'status': "request didn't have the necessary data"})
+        else:
+            return JsonResponse({'status': 'authentication_error'})
+    else:
+        return JsonResponse({'status': 'request_error'})
+
+
+# not final version / Test method
+def periodic_task(request):  # test version
     if request.method == 'GET':
         category_list = Category.objects.all()
+        critical_count = 7   # critical count of new advs to push notification. unreaded notifications number
+        log_dict = dict()   # different instance of communication with GCM
 
         for category in category_list:
 
-            if category.notification_counter >= 7:
-                table_name = category.subscribers_table
+            if category.notification_counter >= critical_count:
 
-                users = list()  # get list of all user's id
-                for user in users:
-                    pass
-                    # push notification
+                id_list = category.select_all_subscribers()  # get list of all user's id from category table
+                title = 'Bazzzar notification'
+                message = 'Appears {0} advs in category {1}'.format(category.notification_counter,
+                                                                    category.name)
+                android_tokens = list()
+                ios_tokens = list()
+
+                for user in id_list:
+                    try:
+                        profile = Profile.objects.get(user_id=user)
+
+                        # get device token from Profile.field, devices registered on GCM
+                        android_tokens.extend(profile.android_tokens.split(','))
+
+                        # get device token from Profile.field, devices registered on APNs
+                        ios_tokens.extend(profile.ios_tokens.split(','))
+
+                    except ObjectDoesNotExist:
+                        pass
+
+                # push notification method for Android
+                log_dict[category.name] = gcm_notification(android_tokens, title, message)
+
+                # push notification method for iOS
+                """
+                apns_notification(ios_tokens, message)            # <<<<<<-------------------- iOS  notification
+                """
 
                 category.notification_counter = 0
                 category.save()
 
-        return JsonResponse({'status': 'successful'})
+        return JsonResponse({'status': 'successful send notifications', 'logo': log_dict})
     else:
         return JsonResponse({'status': 'request_error'})

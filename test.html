@@ -3,6 +3,7 @@
 <head>
     <title>Test Form for API</title>
     <link rel="stylesheet" type="text/css" href="">
+    <meta charset="utf-8">
 </head>
 <body>
     <h3>Log in</h3>
@@ -35,6 +36,37 @@
         <input class="button" type="submit" value="Register">
     </form>
 
+    <h3>Change email</h3>
+    <form action="http://127.0.0.1:8000/api/change_email/" method="post">
+        <label for="new_email">new_email</label>
+        <input type="text" name="new_email"  id="new_email">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Change email">
+    </form>
+
+    <h3>Change password</h3>
+    <form action="http://127.0.0.1:8000/api/change_password/" method="post">
+        <label for="new_password">new_password</label>
+        <input type="password" name="new_password"  id="new_password">
+        <br>
+        <label for="token">Request token</label>
+        <input type="token" name="token"  id="token">
+        <br>
+        <input class="button" type="submit" value="Change password">
+    </form>
+
+    <h3>Get favorites</h3>
+    <form action="http://127.0.0.1:8000/api/get_favorites/" method="post">
+        <label for="token">Request token</label>
+        <input type="text" name="token"  id="token">
+        <br>
+        <br>
+        <input class="button" type="submit" value="get">
+    </form>
+
     <h3>Add_favorite</h3>
     <form action="http://127.0.0.1:8000/api/add_favorite/" method="post">
         <label for="add_favorite">add_favorite</label>
@@ -57,26 +89,13 @@
         <input class="button" type="submit" value="Delete fav">
     </form>
 
-    <h3>Change email</h3>
-    <form action="http://127.0.0.1:8000/api/change_email/" method="post">
-        <label for="new_email">new_email</label>
-        <input type="text" name="new_email"  id="new_email">
-        <br>
+    <h3>Get subscriptions</h3>
+    <form action="http://127.0.0.1:8000/api/get_subscriptions/" method="post">
         <label for="token">Request token</label>
-        <input type="token" name="token"  id="token">
+        <input type="text" name="token"  id="token">
         <br>
-        <input class="button" type="submit" value="Change email">
-    </form>
-
-    <h3>Change password</h3>
-    <form action="http://127.0.0.1:8000/api/change_password/" method="post">
-        <label for="new_password">new_password</label>
-        <input type="password" name="new_password"  id="new_password">
         <br>
-        <label for="token">Request token</label>
-        <input type="token" name="token"  id="token">
-        <br>
-        <input class="button" type="submit" value="Change password">
+        <input class="button" type="submit" value="get">
     </form>
 
     <h3>Subscribe</h3>
@@ -101,10 +120,10 @@
         <input class="button" type="submit" value="unsubscribe">
     </form>
 
-    <h3>Get Categories</h3>
-    <form action="http://127.0.0.1:8000/api/get_categories/" method="post">
-        <label for="token">Request token</label>
-        <input type="text" name="token"  id="token">
+    <h3>Get Advs by datatime</h3>
+    <form action="http://127.0.0.1:8000/api/get_advs_by_datatime/" method="post">
+        <label for="unixtime">Put yours unixtime (example 1461065523.0)</label>
+        <input type="text" name="unixtime"  id="unixtime">
         <br>
         <br>
         <input class="button" type="submit" value="get">
@@ -128,9 +147,12 @@
         <label for="price">price</label>
         <input type="text" name="price"  id="price">
         <br>
+        <label for="unixtime">unixtime</label>
+        <input type="text" name="unixtime"  id="unixtime">
+        <br>
         <input class="button" type="submit" value="filter">
     </form>
-
+<!--
     <h3>House filter</h3>
     <form action="http://127.0.0.1:8000/api/house_filter/" method="post">
         <h4>Parameters:</h4>
@@ -247,7 +269,7 @@
         <br>
         <input class="button" type="submit" value="filter">
     </form>
-
+-->
     <h3>Add Advertisement</h3>
     <form action="http://127.0.0.1:8000/api/add_adv/" method="post">
         <h4>Parameters:</h4>
@@ -370,6 +392,23 @@
         <br>
         <br>
         <input class="button" type="submit" value="Delete from server">
+    </form>
+
+    <h3>Set token</h3>
+    <form action="http://127.0.0.1:8000/api/set_token/" method="post" enctype="multipart/form-data">
+        <label for="token">Request token</label>
+        <input type="text" name="token" id="token">
+        <br>
+        <br>
+        <label for="android">Android token</label>
+        <input type="text" name="android" id="android" maxlength="255">
+        <br>
+        <br>
+        <label for="ios">iOS token</label>
+        <input type="text" name="ios" id="ios" maxlength="255">
+        <br>
+        <br>
+        <input class="button" type="submit" value="Send token">
     </form>
 </body>
 </html>
