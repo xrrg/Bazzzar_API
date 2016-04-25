@@ -30,6 +30,7 @@ urlpatterns = [
     url(r'edit_adv/', views.edit_adv),
     url(r'del_adv/', views.del_adv),
 
+    url(r'ping/', views.ping),
 
     url(r'base_filter/', views.base_filter),
     url(r'extended_filter/', views.extended_filter),

@@ -4,11 +4,12 @@ import hashlib
 import time
 from smtplib import SMTPException
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.shortcuts import render
 from django.db import IntegrityError
+from django.core import serializers
 
 
 from .models import *
@@ -40,17 +41,20 @@ def register(request):
     if request.method == 'POST':
         email = request.POST['email']
         username = request.POST['username']
-        password = request.POST['password']
-        new_user = User.objects.create_user(username=username, password=password, email=email)
-        new_user.save()
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({"status": "user with such username already exist"})
+        else:
+            password = request.POST['password']
+            new_user = User.objects.create_user(username=username, password=password, email=email)
+            new_user.save()
 
-        token = generate_token(new_user.username)
-        # token equel activation_key !!!!!
-        new_profile = Profile(user=new_user, token=token)   # activation_key=token
+            token = generate_token(new_user.username)
+            # token equal activation_key !!!!!
+            new_profile = Profile(user=new_user, token=token)   # activation_key=token
 
-        new_profile.save()
+            new_profile.save()
 
-        return JsonResponse({"status": "successful user registration", "token": token})
+            return JsonResponse({"status": "successful user registration", "token": token})
     else:
         return JsonResponse({"status": "error"})
 
@@ -58,23 +62,42 @@ def register(request):
 # final version
 def auth_check(request):
     """
-    Correct input and permissions check. Returns user profile in case of success
-    as dictionary and returns int '1' in case of failing, and int '2' in case of
+    Correct input and permissions check. Returns user profile and code '0' in case of success
+    as dictionary and returns code '1' in case of failing, and code '2' in case of
     wrong token.
     """
-
-    user = auth.get_user(request)
-    request_token = request.POST['token']
-
-    if user.is_authenticated() and request_token != '':
-        try:
-            user_profile = Profile.objects.get(user=user)
-        except ObjectDoesNotExist:
-            return 1
-        else:
-            if user_profile.token == request_token:
-                return user_profile
-    return 1
+    auth_check_report = dict()
+    auth_check_report['profile'] = None
+    try:
+        request_token = request.POST['token']
+        username = request.POST['username']
+    except Exception:
+        auth_check_report['status'] = 'params_error'
+        auth_check_report['code'] = 1
+        return auth_check_report
+    try:
+        user = User.objects.get(username=username)
+    except ObjectDoesNotExist:
+        auth_check_report['status'] = 'user_not_found'
+        auth_check_report['code'] = 1
+        return auth_check_report
+    else:
+        if user and request_token != '':
+            try:
+                user_profile = Profile.objects.get(user=user)
+            except ObjectDoesNotExist:
+                auth_check_report['status'] = 'profile_not_found'
+                auth_check_report['code'] = 1
+            else:
+                if user_profile.token == request_token:
+                    auth_check_report['status'] = 'success'
+                    auth_check_report['code'] = 0
+                    auth_check_report['profile'] = user_profile
+                else:
+                    auth_check_report['status'] = 'wrong_token'
+                    auth_check_report['code'] = 2
+            finally:
+                return auth_check_report
 
 
 # final version
@@ -109,16 +132,18 @@ def log_out(request):
 # final version
 def change_email(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             new_email = request.POST['new_email']
             user_profile.token = generate_token(new_email)
             user_profile.save()
             user_profile.user.email = new_email
             user_profile.user.save()
-            return JsonResponse({'status': 'e-mail successful changed', 'new_token': user_profile.token})
+            user_profile.save()
+            return JsonResponse({'status': 'success', 'new_token': user_profile.token})
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -126,8 +151,9 @@ def change_email(request):
 # final version
 def change_password(request):  # mobile client handles old password check
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             new_password = request.POST['new_password']
             user_profile.token = generate_token(new_password)
             user_profile.save()
@@ -135,7 +161,7 @@ def change_password(request):  # mobile client handles old password check
             user_profile.user.save()
             return JsonResponse({'status': 'password successful changed', 'new_token': user_profile.token})
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -163,8 +189,9 @@ def reset_password(request):
 # final version
 def get_favorites(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             json_dict = dict()
             favorites_list = get_int_list(user_profile.userFavorites)
 
@@ -172,7 +199,7 @@ def get_favorites(request):
             json_dict['datatime'] = user_profile.datatime_favorites
             return JsonResponse(json_dict)
         else:
-            return JsonResponse({'status': 'authentication_error or missing token'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -180,8 +207,9 @@ def get_favorites(request):
 # final version
 def add_favorite(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = str(request.POST['advertisement_id'])
             if adv_id in user_profile.userFavorites:
                 return JsonResponse({'status': 'advertisement_id already exist in userFavorites'})
@@ -192,7 +220,7 @@ def add_favorite(request):
                 user_profile.save()
             return JsonResponse({'status': 'success'})
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -200,8 +228,9 @@ def add_favorite(request):
 # final version
 def delete_favorite(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = int(request.POST['advertisement_id'])
             int_list = get_int_list(user_profile.userFavorites)  # get int list of id advertisements
             if adv_id in int_list:
@@ -213,7 +242,7 @@ def delete_favorite(request):
             else:
                 return JsonResponse({'status': "not found advertisement or user favorites string empty"})
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -221,8 +250,9 @@ def delete_favorite(request):
 #  final version
 def get_subscriptions(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             json_dict = dict()
             subscriptions_list = get_int_list(user_profile.userSubscriptions)
 
@@ -230,7 +260,7 @@ def get_subscriptions(request):
             json_dict['datatime'] = user_profile.datatime_subscriptions
             return JsonResponse(json_dict)
         else:
-            return JsonResponse({'status': 'authentication_error or missing token'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -238,8 +268,9 @@ def get_subscriptions(request):
 # final version
 def add_subscription(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             try:
                 category_id = str(request.POST['category_id'])
                 if category_id in user_profile.userSubscriptions:
@@ -267,7 +298,7 @@ def add_subscription(request):
             except ValueError:
                 return JsonResponse({'status': "input value error"})
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
@@ -275,8 +306,9 @@ def add_subscription(request):
 # final version
 def delete_subscription(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             try:
                 category_id = int(request.POST['category_id'])
                 int_list = get_int_list(user_profile.userSubscriptions)  # get int list of subscriptions (id categories)
@@ -305,14 +337,14 @@ def delete_subscription(request):
                 return JsonResponse({'status': "input value error"})
 
         else:
-            return JsonResponse({'status': 'authentication_error'})
+            return JsonResponse({'status': auth_check_response['status']})
     else:
         return JsonResponse({'status': 'request_error'})
 
 
 # тестовый вариант
 def add_category(request):
-    Category(name='TEST').save()
+    Category(name='TEST').create_table_subscribers(name='testtesttest')
 
     return JsonResponse({'status': 'successfully added'})
 
@@ -1218,3 +1250,9 @@ def periodic_task(request):  # test version
         return JsonResponse({'status': 'successful send notifications', 'logo': log_dict})
     else:
         return JsonResponse({'status': 'request_error'})
+
+
+def ping(request):
+    set = Category.objects.all()
+    data = serializers.serialize('xml', set, fields=('pk', 'name', 'notification_counter'), ensure_ascii=False)
+    return HttpResponse(data, content_type='application/json; charset=utf8', status=200)

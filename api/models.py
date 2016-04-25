@@ -8,6 +8,8 @@ from django.contrib.auth.models import User
 from django.db import connections
 from django.core.management.color import no_style
 
+from bazzzar.settings import DATABASE_NAME
+
 import sqlite3
 import datetime
 
@@ -43,7 +45,7 @@ class Category(models.Model):
     extrafield_values_table = models.CharField(max_length=255, blank=True, null=True)
 
     @staticmethod
-    def create_table_subscribers(database='db.sqlite3', name=''):
+    def create_table_subscribers(database=DATABASE_NAME, name=''):
         """
         Create subscribers table for current category
         """
@@ -66,7 +68,7 @@ class Category(models.Model):
 
         return table_name
 
-    def insert_row_subscriber(self, database='db.sqlite3', profile_list=list()):
+    def insert_row_subscriber(self, database=DATABASE_NAME, profile_list=list()):
         """
         Insert profile id to  subscribers table from current category
         """
@@ -88,7 +90,7 @@ class Category(models.Model):
         finally:
             connection.close()
 
-    def select_all_subscribers(self, database='db.sqlite3'):
+    def select_all_subscribers(self, database=DATABASE_NAME):
         """
         Select all subscribers(profile ids) from table related with current category
         """
@@ -110,7 +112,7 @@ class Category(models.Model):
 
         return id_list
 
-    def delete_row_subscriber(self, database='db.sqlite3', profile_list=list()):
+    def delete_row_subscriber(self, database=DATABASE_NAME, profile_list=list()):
         """
         Delete subscriber(profile id) from table
         """
@@ -130,7 +132,7 @@ class Category(models.Model):
             connection.close()
 
     @staticmethod
-    def create_table_extrafields(database='db.sqlite3', name=''):
+    def create_table_extrafields(database=DATABASE_NAME, name=''):
         """
         Create table for extra fields values for current category
         """
@@ -155,7 +157,7 @@ class Category(models.Model):
 
         return table_name
 
-    def insert_row_extrafield(self, database='db.sqlite3', extrafield_id=int(),
+    def insert_row_extrafield(self, database=DATABASE_NAME, extrafield_id=int(),
                               advertisement_id=int(), string_value=''):
 
         connection = sqlite3.connect(database)
@@ -175,7 +177,7 @@ class Category(models.Model):
         finally:
             connection.close()
 
-    def update_row_extrafield(self, database='db.sqlite3', string_value=str(),
+    def update_row_extrafield(self, database=DATABASE_NAME, string_value=str(),
                               extrafield_id=int(), advertisement_id=int()):
 
         connection = sqlite3.connect(database)
@@ -194,7 +196,7 @@ class Category(models.Model):
         finally:
             connection.close()
 
-    def select_row_extrafield(self, database='db.sqlite3', string_value=str(),
+    def select_row_extrafield(self, database=DATABASE_NAME, string_value=str(),
                               extrafield_id=int(), advertisement_id=int()):
         """
         Search specific row by all parameters, return True or False
@@ -217,7 +219,7 @@ class Category(models.Model):
 
         return select_or_not
 
-    def select_all_extrafields(self, database='db.sqlite3', advertisement_id=int()):
+    def select_all_extrafields(self, database=DATABASE_NAME, advertisement_id=int()):
         """
         Select all extra fields related to this advertisement by id
         """
@@ -244,7 +246,7 @@ class Category(models.Model):
 
         return fields_list
 
-    def delete_rows_extrafield(self, database='db.sqlite3', advertisement_id=int()):
+    def delete_rows_extrafield(self, database=DATABASE_NAME, advertisement_id=int()):
         """
         Delete related adv extra fields from db table
         """
@@ -264,7 +266,7 @@ class Category(models.Model):
             connection.close()
 
     @staticmethod
-    def drop_table(database='db.sqlite3', table_name=''):
+    def drop_table(database=DATABASE_NAME, table_name=''):
         """
         Drop table with table_name from system
         """
