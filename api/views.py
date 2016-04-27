@@ -586,174 +586,12 @@ def extended_filter(request):   # extend base filter
         return JsonResponse({'status': 'request_error'})
 
 
-"""
-# NEED FIX
-def house_filter(request):  # maybe category = 'House' by default
-
-#    Function filter Advertisement Objects (Houses) by parameters gotten from POST request  and return them.
-#    :param request:
-#    :return: json descriptions of house objects
-
-    if request.method == 'POST':
-        params = dict()
-        int_filters = ['category', 'city', 'price']
-        str_filters = ['title__contains', 'housing__communications__contains', 'housing__area']
-
-        try:
-            params.update(get_int_params(request, int_filters))
-            params.update(get_str_params(request, str_filters))
-
-            advs = Advertisement.objects.filter(**params)
-
-            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
-
-            return JsonResponse({'status': 'success', 'values': advs_list})
-
-        except ValueError:
-                return JsonResponse({'status': 'value_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-
-
-# NEED FIX
-def transport_filter(request):  # maybe category = 'Auto' by default
-"""
-#    Function filter Advertisement Objects (Auto, Motorcycles, Bicycles)
-#    by parameters gotten from POST request  and return them.
-#    :param request:
-#    :return: json descriptions of house objects
-"""
-    if request.method == 'POST':
-        params = dict()
-        int_filters = ['category', 'city', 'price', 'transport__year', 'transport__motor_power']
-        str_filters = ['title__contains', 'transport__color__contains']
-        try:
-            params.update(get_int_params(request, int_filters))
-            params.update(get_str_params(request, str_filters))
-
-            advs = Advertisement.objects.filter(**params)
-
-            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
-
-            return JsonResponse({'status': 'success', 'values': advs_list})
-
-        except ValueError:
-            return JsonResponse({'status': 'value_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-
-
-# NEED FIX
-def clothes_filter(request):
-"""
-#    Function filter Advertisement Objects (Clothes)
-#    by parameters gotten from POST request  and return them.
-#    :param request:
-#    :return: json descriptions of house objects
-"""
-    if request.method == 'POST':
-        params = dict()
-        int_filters = ['category', 'city', 'price', 'clothes__sex']
-        str_filters = ['title__contains']
-        try:
-            params.update(get_int_params(request, int_filters))
-            params.update(get_str_params(request, str_filters))
-
-            advs = Advertisement.objects.filter(**params)
-
-            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
-
-            return JsonResponse({'status': 'success', 'values': advs_list})
-
-        except ValueError:
-            return JsonResponse({'status': 'value_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-
-
-# NEED FIX
-def kidsthings_filter(request):
-"""
-#    Function filter Advertisement Objects (Kids Things)
-#    by parameters gotten from POST request  and return them.
-#    :param request:
-#    :return: json descriptions of house objects
-"""
-    if request.method == 'POST':
-        params = dict()
-        int_filters = ['category', 'city', 'price', 'kids_things__sex', 'kids_things__age']
-        str_filters = ['title__contains']
-
-        try:
-            params.update(get_int_params(request, int_filters))
-            params.update(get_str_params(request, str_filters))
-
-            advs = Advertisement.objects.filter(**params)
-
-            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
-
-            return JsonResponse({'status': 'success', 'values': advs_list})
-
-        except ValueError:
-            return JsonResponse({'status': 'value_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-
-
-# NEED FIX
-def tourism_filter(request):
-"""
-#    Function filter Advertisement Objects (Tourism)
-#    :param request:
-#    :return: json descriptions of house objects
-"""
-    if request.method == 'POST':
-        params = dict()
-        int_filters = ['category', 'city', 'price']
-        str_filters = ['title__contains', 'recreation__name__contains']
-
-        try:
-            params.update(get_int_params(request, int_filters))
-            params.update(get_str_params(request, str_filters))
-
-            advs = Advertisement.objects.filter(**params)
-
-            # доделать отправление обьектов-обьявлений в json формате на мобильный клиент
-
-            advs_list = list()
-            for adv in advs:
-                advs_list.append(adv.title)
-
-            return JsonResponse({'status': 'success', 'values': advs_list})
-
-        except ValueError:
-            return JsonResponse({'status': 'value_error'})
-    else:
-        return JsonResponse({'status': 'request_error'})
-"""
-
-
 # final version, data = json.loads(request.POST.get('json_object'))
 def add_adv(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             params = dict()
             int_args = ['condition', 'price']
             str_args = ['title', 'description', 'phone']
@@ -804,8 +642,9 @@ def add_adv(request):
 # final version
 def del_adv(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = request.POST['adv_id']
             try:
                 adv = Advertisement.objects.get(pk=adv_id)
@@ -853,8 +692,9 @@ def del_adv(request):
 # final version
 def edit_adv(request):
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = request.POST['adv_id']
             try:
                 adv = Advertisement.objects.get(pk=adv_id)
@@ -917,8 +757,9 @@ def upload_photos(request):
     :return: status, list of failed upload files || (&&) list of success upload files
     """
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = request.POST['adv_id']
             try:    # check existence advertisement and belong to profile
                 advertisement = Advertisement.objects.get(pk=adv_id, profile_id=user_profile.id)
@@ -1013,8 +854,9 @@ def delete_photos(request):  # final version
     :return: json response
     """
     if request.method == 'POST':
-        user_profile = auth_check(request)
-        if user_profile != 1:
+        auth_check_response = auth_check(request)
+        if auth_check_response['code'] == 0:
+            user_profile = auth_check_response['profile']
             adv_id = request.POST['adv_id']
             try:    # check existence advertisement and belong to profile
                 advertisement = Advertisement.objects.get(pk=adv_id, profile_id=user_profile.id)
